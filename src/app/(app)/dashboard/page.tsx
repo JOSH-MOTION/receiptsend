@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -32,22 +33,10 @@ import {
 } from "@/components/ui/chart"
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 import Link from "next/link"
-import React from "react";
-
-const chartData = [
-  { month: "January", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "February", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "March", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "April", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "May", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "June", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "July", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "August", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "September", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "October", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "November", total: Math.floor(Math.random() * 5000) + 1000 },
-  { month: "December", total: Math.floor(Math.random() * 5000) + 1000 },
-]
+import React, { useMemo } from "react";
+import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, query, orderBy, limit, where } from "firebase/firestore";
+import { format, subHours, subMonths } from "date-fns";
 
 const chartConfig = {
   total: {
@@ -57,6 +46,104 @@ const chartConfig = {
 }
 
 export default function Dashboard() {
+  const { user } = useUser();
+  const firestore = useFirestore();
+
+  const receiptsRef = useMemoFirebase(() => {
+    if (!user) return null;
+    return collection(firestore, `organizations/${user.uid}/receipts`);
+  }, [firestore, user]);
+
+  const recentReceiptsQuery = useMemoFirebase(() => {
+    if (!receiptsRef) return null;
+    return query(receiptsRef, orderBy("createdAt", "desc"), limit(5));
+  }, [receiptsRef]);
+
+  const { data: allReceipts, isLoading: isLoadingAllReceipts } = useCollection(receiptsRef);
+  const { data: recentReceipts, isLoading: isLoadingRecent } = useCollection(recentReceiptsQuery);
+
+  const stats = useMemo(() => {
+    if (!allReceipts) {
+      return {
+        totalRevenue: 0,
+        receiptsSent: 0,
+        newCustomers: 0,
+        engagement: 0,
+        revenueLastMonth: 0,
+        receiptsLastMonth: 0,
+        customersLastMonth: 0,
+        engagementLastHour: 0,
+      };
+    }
+
+    const oneMonthAgo = subMonths(new Date(), 1);
+    const oneHourAgo = subHours(new Date(), 1);
+
+    let totalRevenue = 0;
+    let receiptsSent = allReceipts.length;
+    const customerEmails = new Set<string>();
+    let engagementLastHour = 0;
+    
+    let revenueLastMonth = 0;
+    let receiptsLastMonth = 0;
+    const customersLastMonth = new Set<string>();
+
+    allReceipts.forEach(receipt => {
+      totalRevenue += receipt.totalAmount || 0;
+      customerEmails.add(receipt.customerEmail);
+
+      const receiptDate = new Date(receipt.createdAt);
+      if (receiptDate > oneMonthAgo) {
+        revenueLastMonth += receipt.totalAmount || 0;
+        receiptsLastMonth++;
+        customersLastMonth.add(receipt.customerEmail);
+      }
+      if (receiptDate > oneHourAgo) {
+        engagementLastHour++;
+      }
+    });
+    
+    const newCustomers = customerEmails.size;
+    const prevMonthRevenue = totalRevenue - revenueLastMonth;
+    const prevMonthReceipts = receiptsSent - receiptsLastMonth;
+    const prevMonthCustomers = newCustomers - customersLastMonth.size;
+
+    const revenuePercentage = prevMonthRevenue > 0 ? ((revenueLastMonth - prevMonthRevenue) / prevMonthRevenue) * 100 : revenueLastMonth > 0 ? 100 : 0;
+    const receiptsPercentage = prevMonthReceipts > 0 ? ((receiptsLastMonth - prevMonthReceipts) / prevMonthReceipts) * 100 : receiptsLastMonth > 0 ? 100 : 0;
+    const customersPercentage = prevMonthCustomers > 0 ? ((customersLastMonth.size - prevMonthCustomers) / prevMonthCustomers) * 100 : customersLastMonth.size > 0 ? 100 : 0;
+
+
+    return {
+      totalRevenue,
+      receiptsSent,
+      newCustomers,
+      engagement: engagementLastHour,
+      revenuePercentage,
+      receiptsPercentage,
+      customersPercentage,
+    };
+  }, [allReceipts]);
+
+  const chartData = useMemo(() => {
+    const months = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date();
+      d.setMonth(d.getMonth() - i);
+      return { month: format(d, 'MMMM'), total: 0 };
+    }).reverse();
+
+    if (allReceipts) {
+      allReceipts.forEach(receipt => {
+        const receiptMonth = format(new Date(receipt.createdAt), 'MMMM');
+        const monthData = months.find(m => m.month === receiptMonth);
+        if (monthData) {
+          monthData.total += receipt.totalAmount || 0;
+        }
+      });
+    }
+    return months;
+  }, [allReceipts]);
+
+
   return (
     <>
       <div className="grid gap-4 md:grid-cols-2 md:gap-8 lg:grid-cols-4">
@@ -68,9 +155,9 @@ export default function Dashboard() {
             <DollarSign className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">$45,231.89</div>
+            <div className="text-2xl font-bold">${stats.totalRevenue.toFixed(2)}</div>
             <p className="text-xs text-muted-foreground">
-              +20.1% from last month
+              {stats.revenuePercentage >= 0 ? '+' : ''}{stats.revenuePercentage.toFixed(1)}% from last month
             </p>
           </CardContent>
         </Card>
@@ -82,9 +169,9 @@ export default function Dashboard() {
             <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+2350</div>
+            <div className="text-2xl font-bold">+{stats.receiptsSent}</div>
             <p className="text-xs text-muted-foreground">
-              +180.1% from last month
+             {stats.receiptsPercentage >= 0 ? '+' : ''}{stats.receiptsPercentage.toFixed(1)}% from last month
             </p>
           </CardContent>
         </Card>
@@ -94,9 +181,9 @@ export default function Dashboard() {
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+12,234</div>
+            <div className="text-2xl font-bold">+{stats.newCustomers}</div>
             <p className="text-xs text-muted-foreground">
-              +19% from last month
+              {stats.customersPercentage >= 0 ? '+' : ''}{stats.customersPercentage.toFixed(1)}% from last month
             </p>
           </CardContent>
         </Card>
@@ -108,9 +195,9 @@ export default function Dashboard() {
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">+573</div>
+            <div className="text-2xl font-bold">+{stats.engagement}</div>
             <p className="text-xs text-muted-foreground">
-              +201 since last hour
+              in the last hour
             </p>
           </CardContent>
         </Card>
@@ -146,57 +233,40 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                <TableRow>
-                  <TableCell>
-                    <div className="font-medium">Liam Johnson</div>
-                    <div className="hidden text-sm text-muted-foreground md:inline">
-                      liam@example.com
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden xl:table-column">
-                    <Badge className="text-xs" variant="secondary">
-                      Sent
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                    2023-06-23
-                  </TableCell>
-                  <TableCell className="text-right">$250.00</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <div className="font-medium">Olivia Smith</div>
-                    <div className="hidden text-sm text-muted-foreground md:inline">
-                      olivia@example.com
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden xl:table-column">
-                    <Badge className="text-xs" variant="outline">
-                      Draft
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                    2023-06-24
-                  </TableCell>
-                  <TableCell className="text-right">$150.00</TableCell>
-                </TableRow>
-                <TableRow>
-                  <TableCell>
-                    <div className="font-medium">Noah Williams</div>
-                    <div className="hidden text-sm text-muted-foreground md:inline">
-                      noah@example.com
-                    </div>
-                  </TableCell>
-                  <TableCell className="hidden xl:table-column">
-                     <Badge className="text-xs" variant="secondary">
-                      Sent
-                    </Badge>
-                  </TableCell>
-                  <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                    2023-06-25
-                  </TableCell>
-                  <TableCell className="text-right">$350.00</TableCell>
-                </TableRow>
+                {isLoadingRecent ? (
+                  Array.from({ length: 5 }).map((_, i) => (
+                    <TableRow key={i}>
+                      <TableCell><div className="font-medium">Loading...</div></TableCell>
+                      <TableCell className="hidden xl:table-column">...</TableCell>
+                      <TableCell className="hidden md:table-cell lg:hidden xl:table-column">...</TableCell>
+                      <TableCell className="text-right">...</TableCell>
+                    </TableRow>
+                  ))
+                ) : recentReceipts && recentReceipts.length > 0 ? (
+                  recentReceipts.map(receipt => (
+                    <TableRow key={receipt.id}>
+                      <TableCell>
+                        <div className="font-medium">{receipt.customerName}</div>
+                        <div className="hidden text-sm text-muted-foreground md:inline">
+                          {receipt.customerEmail}
+                        </div>
+                      </TableCell>
+                      <TableCell className="hidden xl:table-column">
+                        <Badge className="text-xs" variant="secondary">
+                          Sent
+                        </Badge>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
+                        {format(new Date(receipt.createdAt), "yyyy-MM-dd")}
+                      </TableCell>
+                      <TableCell className="text-right">${receipt.totalAmount.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))
+                ) : (
+                   <TableRow>
+                      <TableCell colSpan={4} className="text-center">No transactions found.</TableCell>
+                    </TableRow>
+                )}
               </TableBody>
             </Table>
           </CardContent>
@@ -207,6 +277,9 @@ export default function Dashboard() {
             <CardDescription>An overview of your receipts sent this year.</CardDescription>
           </CardHeader>
           <CardContent>
+             {isLoadingAllReceipts ? (
+              <div className="h-64 w-full flex items-center justify-center">Loading...</div>
+            ) : (
             <ChartContainer config={chartConfig} className="h-64 w-full">
               <BarChart accessibilityLayer data={chartData}>
                 <CartesianGrid vertical={false} />
@@ -224,9 +297,12 @@ export default function Dashboard() {
                 <Bar dataKey="total" fill="var(--color-total)" radius={4} />
               </BarChart>
             </ChartContainer>
+            )}
           </CardContent>
         </Card>
       </div>
     </>
   )
 }
+
+    
