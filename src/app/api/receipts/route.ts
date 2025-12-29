@@ -81,19 +81,25 @@ export async function POST(req: NextRequest) {
         );
     }
     
-    // 3. Send SMS if phone number is provided
-    if (data.customerPhoneNumber) {
+    // 3. Send SMS if phone number is provided and there is a balance
+    if (data.customerPhoneNumber && organization.smsBalance && organization.smsBalance > 0) {
         let smsMessage = organization.smsContent || "Your receipt from {{business_name}} for {{amount}} is #{{receipt_number}}.";
         smsMessage = smsMessage.replace("{{customer_name}}", data.customerName);
         smsMessage = smsMessage.replace("{{business_name}}", organization.companyName);
         smsMessage = smsMessage.replace("{{amount}}", `$${data.totalAmount.toFixed(2)}`);
         smsMessage = smsMessage.replace("{{receipt_number}}", data.receiptNumber);
 
-        await sendSms({
+        const smsResult = await sendSms({
             organizationId: organizationId,
             message: smsMessage,
             recipients: [data.customerPhoneNumber]
         });
+
+        // 4. Decrement balance if SMS was sent successfully
+        if (smsResult.success) {
+            organization.smsBalance -= 1;
+            await organization.save();
+        }
     }
 
     return NextResponse.json(receipt, { status: 201 });
