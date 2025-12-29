@@ -8,7 +8,7 @@ import {
   Settings,
 } from "lucide-react";
 import Link from "next/link";
-import { usePathname } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -33,6 +33,9 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
+import { useAuth, useUser } from "@/firebase";
+import { Skeleton } from "./ui/skeleton";
+import { useAuth as useAppAuth } from "@/hooks/use-auth";
 
 function NavLink({
   href,
@@ -64,7 +67,16 @@ function NavLink({
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
+  useAppAuth({ required: true });
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
+  const auth = useAuth();
+  const { user, isUserLoading } = useUser();
+  const router = useRouter();
+
+  const handleLogout = async () => {
+    await auth.signOut();
+    router.push('/login');
+  };
 
   return (
     <SidebarProvider>
@@ -92,14 +104,28 @@ export function AppShell({ children }: { children: React.ReactNode }) {
            <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button variant="ghost" className="w-full justify-start gap-2 px-2">
-                    <Avatar className="h-8 w-8">
-                      <AvatarImage src={userAvatar?.imageUrl} alt={userAvatar?.description} data-ai-hint={userAvatar?.imageHint} />
-                      <AvatarFallback>AI</AvatarFallback>
-                    </Avatar>
-                    <div className="flex flex-col items-start">
-                      <span className="text-sm font-semibold">Acme Inc.</span>
-                      <span className="text-xs text-muted-foreground -mt-0.5">admin@acme.inc</span>
-                    </div>
+                  {isUserLoading ? (
+                    <>
+                      <Skeleton className="h-8 w-8 rounded-full" />
+                      <div className="flex flex-col items-start gap-1">
+                        <Skeleton className="h-4 w-20" />
+                        <Skeleton className="h-3 w-24" />
+                      </div>
+                    </>
+                  ) : (
+                    <>
+                      <Avatar className="h-8 w-8">
+                        <AvatarImage src={user?.photoURL || userAvatar?.imageUrl} alt={user?.displayName || userAvatar?.description} data-ai-hint={userAvatar?.imageHint} />
+                        <AvatarFallback>
+                          {user?.email?.charAt(0).toUpperCase() || 'U'}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col items-start">
+                        <span className="text-sm font-semibold">{user?.displayName || "Acme Inc."}</span>
+                        <span className="text-xs text-muted-foreground -mt-0.5">{user?.email}</span>
+                      </div>
+                    </>
+                  )}
                 </Button>
               </DropdownMenuTrigger>
               <DropdownMenuContent align="start" className="w-56">
@@ -108,7 +134,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 <DropdownMenuItem asChild><Link href="/settings">Settings</Link></DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem asChild><Link href="/">Logout</Link></DropdownMenuItem>
+                <DropdownMenuItem onClick={handleLogout}>Logout</DropdownMenuItem>
               </DropdownMenuContent>
             </DropdownMenu>
         </SidebarFooter>
