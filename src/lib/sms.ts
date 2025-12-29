@@ -1,9 +1,9 @@
 // src/lib/sms.ts
 
-import { Organization } from '@/lib/models';
+import { Organization } from '@/lib/models'; // Add this import
 
 interface SendSmsParams {
-  organizationId: string;
+  organizationId: string; // Now REQUIRED – we need it for sender ID
   message: string;
   recipients: string[];
 }
@@ -12,129 +12,111 @@ interface SendSmsResult {
   success: boolean;
   message?: string;
   error?: string;
+  data?: any;
 }
 
 /**
- * Send SMS using QuickSMS API (linksengineering.net)
+ * Send SMS using QuickSMS Ghana API – with per-organization sender ID
  */
-async function sendSmsViaQuickSMS(params: SendSmsParams): Promise<SendSmsResult> {
-  const { message, recipients } = params;
-  const apiKey = process.env.SMS_API_KEY;
+async function sendSmsViaQuickSMS({
+  organizationId,
+  message,
+  recipients,
+}: SendSmsParams): Promise<SendSmsResult> {
+  const PUBLIC_KEY = process.env.QUICKSMS_PUBLIC_KEY || '2c88f994a5a5c9d1';
 
-  if (!apiKey) {
-    return { success: false, error: 'QuickSMS API key not configured' };
+  if (!PUBLIC_KEY) {
+    return { success: false, error: 'QuickSMS Public Key not configured' };
   }
 
+  // Fetch organization to get custom sender ID
+  const organization = await Organization.findById(organizationId);
+  if (!organization) {
+    return { success: false, error: 'Organization not found' };
+  }
+
+  const SENDER_ID = (organization.smsSenderId || 'ReceiptApp').trim().slice(0, 11); // Max 11 chars
+
+  // Format phone numbers
+  const formattedRecipients = recipients.map((num) => {
+    let cleaned = num.replace(/\D/g, '');
+    if (cleaned.startsWith('0')) cleaned = '233' + cleaned.slice(1);
+    else if (!cleaned.startsWith('233')) cleaned = '233' + cleaned;
+    return cleaned;
+  });
+
+  if (formattedRecipients.some(n => n.length !== 12 || !n.startsWith('233'))) {
+    return { success: false, error: 'Invalid Ghana phone number(s)' };
+  }
+
+  const params = new URLSearchParams({
+    public_key: PUBLIC_KEY,
+    sender: SENDER_ID,
+    numbers: formattedRecipients.join(','),
+    message: message,
+  });
+
+  const url = `https://linksengineering.net/apisms/api/qapi?${params.toString()}`;
+
+  console.log('📱 Sending SMS via QuickSMS');
+  console.log('🏢 Organization Sender ID:', SENDER_ID);
+  console.log('🌐 URL:', url);
+  console.log('📞 Recipients:', formattedRecipients.join(', '));
+
   try {
-    // QuickSMS API endpoint - adjust if the actual endpoint is different
-    const apiUrl = 'https://linksengineering.net/quicksms/api/send';
-    
-    // Prepare the request body - adjust fields based on actual API requirements
-    const requestBody = {
-      api_key: apiKey,
-      to: recipients[0], // Phone number
-      message: message,
-      sender: 'ReceiptApp', // Adjust sender name as needed
-    };
+    const response = await fetch(url, { method: 'GET' });
+    const responseText = await response.text();
 
-    console.log('📱 Sending SMS via QuickSMS to:', recipients[0]);
+    if (!response.ok) {
+      console.error(`❌ HTTP ${response.status}`);
+      console.error('Raw response:', responseText.slice(0, 800));
+      return { success: false, error: 'API error – check sender approval/balance' };
+    }
 
-    const response = await fetch(apiUrl, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'Accept': 'application/json',
-      },
-      body: JSON.stringify(requestBody),
-    });
+    if (!responseText.trim().match(/^[\[{]/)) {
+      console.error('❌ Non-JSON response:', responseText.slice(0, 800));
+      return { success: false, error: 'Invalid response (wrong key/sender?)' };
+    }
 
-    const result = await response.json();
+    const result = JSON.parse(responseText);
+    console.log('✅ QuickSMS response:', result);
 
-    if (response.ok) {
-      console.log('✅ SMS sent successfully via QuickSMS:', result);
-      return { 
-        success: true, 
-        message: `SMS sent successfully` 
-      };
+    if (result.status === 'success' || result.message?.toLowerCase().includes('success')) {
+      return { success: true, message: 'SMS sent', data: result };
     } else {
-      console.error('❌ QuickSMS API error:', result);
-      return { 
-        success: false, 
-        error: result.message || result.error || 'Unknown QuickSMS error' 
-      };
+      return { success: false, error: result.message || 'Failed (unapproved sender?)', data: result };
     }
   } catch (error: any) {
-    console.error('❌ QuickSMS request failed:', error);
+    console.error('❌ Request failed:', error);
     return { success: false, error: error.message };
   }
 }
 
-/**
- * Main SMS sending function
- */
 export async function sendSms(params: SendSmsParams): Promise<SendSmsResult> {
-  const { recipients, message } = params;
+  const { message, recipients, organizationId } = params;
 
-  // Validate inputs
-  if (!recipients || recipients.length === 0) {
-    return { success: false, error: 'No recipients provided' };
-  }
+  if (!organizationId) return { success: false, error: 'organizationId required' };
+  if (!recipients?.length) return { success: false, error: 'No recipients' };
+  if (!message?.trim()) return { success: false, error: 'Empty message' };
 
-  if (!message || message.trim().length === 0) {
-    return { success: false, error: 'Message is empty' };
-  }
+  console.log(`📱 Sending SMS for org ${organizationId} to ${recipients.length} recipient(s)`);
 
-  console.log(`📱 Attempting to send SMS to ${recipients[0]}`);
-  console.log(`📝 Message: ${message.substring(0, 50)}...`);
+  const result = await sendSmsViaQuickSMS(params);
 
-  try {
-    const result = await sendSmsViaQuickSMS(params);
+  result.success ? console.log('✅ Success') : console.error('❌ Failed:', result.error);
 
-    // Log the result
-    if (result.success) {
-      console.log('✅ SMS delivery successful');
-    } else {
-      console.error('❌ SMS delivery failed:', result.error);
-    }
-
-    return result;
-  } catch (error: any) {
-    console.error('❌ Unexpected SMS error:', error);
-    return { success: false, error: error.message || 'Unknown error occurred' };
-  }
+  return result;
 }
 
-/**
- * Send SMS to multiple recipients (sends individually)
- */
+// Bulk remains the same – true bulk via comma-separated numbers
 export async function sendBulkSms(
   organizationId: string,
   message: string,
   recipients: string[]
 ): Promise<{ successful: number; failed: number; errors: string[] }> {
-  const results = {
-    successful: 0,
-    failed: 0,
-    errors: [] as string[],
-  };
+  const result = await sendSms({ organizationId, message, recipients });
 
-  for (const recipient of recipients) {
-    const result = await sendSms({
-      organizationId,
-      message,
-      recipients: [recipient],
-    });
-
-    if (result.success) {
-      results.successful++;
-    } else {
-      results.failed++;
-      results.errors.push(`${recipient}: ${result.error}`);
-    }
-
-    // Add a small delay between messages to avoid rate limiting
-    await new Promise(resolve => setTimeout(resolve, 500));
-  }
-
-  return results;
+  return result.success
+    ? { successful: recipients.length, failed: 0, errors: [] }
+    : { successful: 0, failed: recipients.length, errors: [result.error || 'Unknown'] };
 }

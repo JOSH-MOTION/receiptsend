@@ -13,10 +13,9 @@ async function connectDB() {
   return mongoose.connect(MONGODB_URI!);
 }
 
-// GET single receipt by ID
 export async function GET(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
@@ -26,12 +25,15 @@ export async function GET(
     }
 
     const organizationId = (session.user as any).organizationId;
+    
+    // Await params before accessing properties
+    const { id } = await params;
 
     await connectDB();
 
     const receipt = await Receipt.findOne({
-      _id: params.id,
-      organizationId: organizationId, // Ensure user can only access their own receipts
+      _id: id,
+      organizationId: organizationId,
     }).lean();
 
     if (!receipt) {
@@ -40,9 +42,9 @@ export async function GET(
 
     return NextResponse.json(receipt);
   } catch (error: any) {
-    console.error('Get receipt error:', error);
+    console.error('Error fetching receipt:', error);
     return NextResponse.json(
-      { error: error.message || 'Something went wrong' },
+      { error: error.message || 'Failed to fetch receipt' },
       { status: 500 }
     );
   }

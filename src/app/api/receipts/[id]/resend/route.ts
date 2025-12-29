@@ -6,37 +6,35 @@ import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { Resend } from 'resend';
 import { sendSms } from '@/lib/sms';
 
-const MONGODB_URI = process.env.MONGODB_URI;
+const MONGODB_URI = process.env.MONGODB_URI!;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 async function connectDB() {
-  if (mongoose.connection.readyState >= 1) {
-    return;
-  }
-  return mongoose.connect(MONGODB_URI!);
+  if (mongoose.connection.readyState >= 1) return;
+  return mongoose.connect(MONGODB_URI);
 }
 
 export async function POST(
   req: NextRequest,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
     const session = await getServerSession(authOptions);
-    
     if (!session?.user) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
     const organizationId = (session.user as any).organizationId;
     const { type } = await req.json(); // 'email' or 'sms'
+    const { id } = await params;
 
     await connectDB();
 
     const receipt = await Receipt.findOne({
-      _id: params.id,
-      organizationId: organizationId,
+      _id: id,
+      organizationId,
     }).lean();
 
     if (!receipt) {
@@ -49,7 +47,6 @@ export async function POST(
     }
 
     if (type === 'email') {
-      // Resend Email
       if (!resend) {
         return NextResponse.json(
           { error: 'Email service not configured' },
@@ -69,7 +66,7 @@ export async function POST(
 
       emailSubject = emailSubject.replace('{{business_name}}', organization.companyName);
       emailBody = emailBody
-        .replace('{{customer_name}}', receipt.customerName)
+        .replace('{{customer_name}}', receipt.customerName || 'Customer')
         .replace('{{business_name}}', organization.companyName)
         .replace('{{amount}}', `$${receipt.totalAmount.toFixed(2)}`)
         .replace('{{receipt_number}}', receipt.receiptNumber);
@@ -100,8 +97,8 @@ export async function POST(
                 )
                 .join('')}
             </ul>
-            ${receipt.discount > 0 ? `<p><strong>Discount:</strong> ${receipt.discount}%</p>` : ''}
-            ${receipt.tax > 0 ? `<p><strong>Tax:</strong> ${receipt.tax}%</p>` : ''}
+            ${(receipt.discount ?? 0) > 0 ? `<p><strong>Discount:</strong> ${(receipt.discount ?? 0)}%</p>` : ''}
+            ${(receipt.tax ?? 0) > 0 ? `<p><strong>Tax:</strong> ${(receipt.tax ?? 0)}%</p>` : ''}
             <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
             <p style="color: #666; font-size: 12px;">Thank you for your business!</p>
           </div>
@@ -109,8 +106,9 @@ export async function POST(
       });
 
       return NextResponse.json({ message: 'Email resent successfully' });
-    } else if (type === 'sms') {
-      // Resend SMS
+    }
+
+    if (type === 'sms') {
       if (!receipt.customerPhoneNumber) {
         return NextResponse.json(
           { error: 'No customer phone number on this receipt' },
@@ -129,7 +127,7 @@ export async function POST(
         organization.smsContent ||
         'Your receipt from {{business_name}} for {{amount}} is #{{receipt_number}}.';
       smsMessage = smsMessage
-        .replace('{{customer_name}}', receipt.customerName)
+        .replace('{{customer_name}}', receipt.customerName || 'Customer')
         .replace('{{business_name}}', organization.companyName)
         .replace('{{amount}}', `$${receipt.totalAmount.toFixed(2)}`)
         .replace('{{receipt_number}}', receipt.receiptNumber);
@@ -153,12 +151,12 @@ export async function POST(
           { status: 500 }
         );
       }
-    } else {
-      return NextResponse.json(
-        { error: 'Invalid type. Use "email" or "sms"' },
-        { status: 400 }
-      );
     }
+
+    return NextResponse.json(
+      { error: 'Invalid type. Use "email" or "sms"' },
+      { status: 400 }
+    );
   } catch (error: any) {
     console.error('Resend error:', error);
     return NextResponse.json(
