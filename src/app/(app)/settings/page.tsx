@@ -52,9 +52,7 @@ const orgSettingsSchema = z.object({
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   smsContent: z.string().optional(),
-  // We remove these from the user-facing form. They will only be on the admin's org document.
-  smsApiKey: z.string().optional(),
-  smsSenderId: z.string().optional(),
+  smsBalance: z.number().optional(),
 });
 
 type OrgSettingsFormValues = z.infer<typeof orgSettingsSchema>;
@@ -87,14 +85,13 @@ export default function SettingsPage() {
       emailSubject: "",
       emailBody: "",
       smsContent: "",
+      smsBalance: 0,
     }
   });
 
   useEffect(() => {
     if (orgData) {
-      // We don't want to show the API key or sender ID even if they exist on the doc
-      const { smsApiKey, smsSenderId, ...formData } = orgData;
-      form.reset(formData);
+      form.reset(orgData);
     }
   }, [orgData, form]);
 
@@ -413,7 +410,7 @@ export default function SettingsPage() {
                   <div className="border-t pt-4">
                     <h4 className="text-lg font-semibold">SMS Credits</h4>
                     <p className="text-sm text-muted-foreground">
-                        You have <span className="font-bold">0</span> SMS credits remaining.
+                        You have <span className="font-bold">{orgData?.smsBalance || 0}</span> SMS credits remaining.
                     </p>
                     <Button variant="outline" className="mt-2" disabled>Buy More Credits</Button>
                     <p className="text-xs text-muted-foreground mt-2">
@@ -429,3 +426,6 @@ export default function SettingsPage() {
     </>
   );
 }
+
+
+    
