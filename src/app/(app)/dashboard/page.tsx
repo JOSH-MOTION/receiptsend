@@ -36,6 +36,28 @@ import React, { useMemo, useState, useEffect } from "react";
 import { useSession } from 'next-auth/react';
 import { format, subHours, subMonths } from "date-fns";
 
+// Define proper types for receipts
+interface ReceiptItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+interface Receipt {
+  _id: string;
+  organizationId: string;
+  receiptNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhoneNumber?: string;
+  items: ReceiptItem[];
+  discount?: number;
+  tax?: number;
+  totalAmount: number;
+  pdfUrl?: string;
+  createdAt: string;
+}
+
 const chartConfig = {
   total: {
     label: "Total",
@@ -45,8 +67,8 @@ const chartConfig = {
 
 export default function Dashboard() {
   const { data: session } = useSession();
-  const [allReceipts, setAllReceipts] = useState<any[]>([]);
-  const [recentReceipts, setRecentReceipts] = useState<any[]>([]);
+  const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
+  const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
 
@@ -64,7 +86,7 @@ export default function Dashboard() {
     try {
       const response = await fetch('/api/receipts');
       if (response.ok) {
-        const data = await response.json();
+        const data: Receipt[] = await response.json();
         setAllReceipts(data);
         setRecentReceipts(data.slice(0, 5));
       }

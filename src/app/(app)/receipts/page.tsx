@@ -52,10 +52,36 @@ import Link from "next/link"
 import { useSession } from 'next-auth/react';
 import { useState, useEffect } from "react";
 import { format } from "date-fns";
+import { useToast } from "@/hooks/use-toast";
+import { useRouter } from "next/navigation";
+
+// Define proper types for receipts
+interface ReceiptItem {
+  name: string;
+  quantity: number;
+  price: number;
+}
+
+interface Receipt {
+  _id: string;
+  organizationId: string;
+  receiptNumber: string;
+  customerName: string;
+  customerEmail: string;
+  customerPhoneNumber?: string;
+  items: ReceiptItem[];
+  discount?: number;
+  tax?: number;
+  totalAmount: number;
+  pdfUrl?: string;
+  createdAt: string;
+}
 
 export default function ReceiptsPage() {
   const { data: session } = useSession();
-  const [receipts, setReceipts] = useState<any[]>([]);
+  const { toast } = useToast();
+  const router = useRouter();
+  const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -68,13 +94,100 @@ export default function ReceiptsPage() {
     try {
       const response = await fetch('/api/receipts');
       if (response.ok) {
-        const data = await response.json();
+        const data: Receipt[] = await response.json();
         setReceipts(data);
       }
     } catch (error) {
       console.error('Error fetching receipts:', error);
     } finally {
       setIsLoading(false);
+    }
+  };
+
+  const handleExport = async () => {
+    try {
+      const response = await fetch('/api/receipts/export');
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `receipts-export-${new Date().toISOString().split('T')[0]}.csv`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: 'Success',
+          description: 'Receipts exported successfully',
+        });
+      } else {
+        throw new Error('Export failed');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to export receipts',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleViewDetails = (receiptId: string) => {
+    router.push(`/receipts/${receiptId}`);
+  };
+
+  const handleDownloadPDF = async (receiptId: string, receiptNumber: string) => {
+    try {
+      const response = await fetch(`/api/receipts/${receiptId}/pdf`);
+      if (response.ok) {
+        const blob = await response.blob();
+        const url = window.URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = `receipt-${receiptNumber}.pdf`;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        window.URL.revokeObjectURL(url);
+
+        toast({
+          title: 'Success',
+          description: 'PDF downloaded successfully',
+        });
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: 'Failed to download PDF',
+        variant: 'destructive',
+      });
+    }
+  };
+
+  const handleResend = async (receiptId: string, type: 'email' | 'sms') => {
+    try {
+      const response = await fetch(`/api/receipts/${receiptId}/resend`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ type }),
+      });
+
+      if (response.ok) {
+        toast({
+          title: 'Success',
+          description: `${type === 'email' ? 'Email' : 'SMS'} resent successfully`,
+        });
+      } else {
+        throw new Error('Resend failed');
+      }
+    } catch (error) {
+      toast({
+        title: 'Error',
+        description: `Failed to resend ${type}`,
+        variant: 'destructive',
+      });
     }
   };
 
@@ -95,10 +208,10 @@ export default function ReceiptsPage() {
           </BreadcrumbList>
         </Breadcrumb>
         <div className="ml-auto flex items-center gap-2">
-          <Button size="sm" variant="outline" className="h-8 gap-1">
+          <Button size="sm" variant="outline" className="h-8 gap-1" onClick={handleExport}>
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Export
+              Export CSV
             </span>
           </Button>
           <Button size="sm" className="h-8 gap-1" asChild>
@@ -178,7 +291,14 @@ export default function ReceiptsPage() {
                   ) : receipts && receipts.length > 0 ? (
                     receipts.map((receipt) => (
                       <TableRow key={receipt._id}>
-                        <TableCell className="font-medium">{receipt.receiptNumber}</TableCell>
+                        <TableCell className="font-medium">
+                          <Link 
+                            href={`/receipts/${receipt._id}`}
+                            className="hover:underline text-primary"
+                          >
+                            {receipt.receiptNumber}
+                          </Link>
+                        </TableCell>
                         <TableCell>
                           <div className="font-medium">{receipt.customerName}</div>
                           <div className="text-sm text-muted-foreground">{receipt.customerEmail}</div>
@@ -204,9 +324,20 @@ export default function ReceiptsPage() {
                             </DropdownMenuTrigger>
                             <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem>View Details</DropdownMenuItem>
-                              <DropdownMenuItem>Download PDF</DropdownMenuItem>
-                              <DropdownMenuItem>Resend</DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleViewDetails(receipt._id)}>
+                                View Details
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleDownloadPDF(receipt._id, receipt.receiptNumber)}>
+                                Download PDF
+                              </DropdownMenuItem>
+                              <DropdownMenuItem onClick={() => handleResend(receipt._id, 'email')}>
+                                Resend Email
+                              </DropdownMenuItem>
+                              {receipt.customerPhoneNumber && (
+                                <DropdownMenuItem onClick={() => handleResend(receipt._id, 'sms')}>
+                                  Resend SMS
+                                </DropdownMenuItem>
+                              )}
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -250,7 +381,14 @@ export default function ReceiptsPage() {
                 <TableBody>
                   {receipts.map((receipt) => (
                     <TableRow key={receipt._id}>
-                      <TableCell className="font-medium">{receipt.receiptNumber}</TableCell>
+                      <TableCell className="font-medium">
+                        <Link 
+                          href={`/receipts/${receipt._id}`}
+                          className="hover:underline text-primary"
+                        >
+                          {receipt.receiptNumber}
+                        </Link>
+                      </TableCell>
                       <TableCell>
                         <div className="font-medium">{receipt.customerName}</div>
                         <div className="text-sm text-muted-foreground">{receipt.customerEmail}</div>
