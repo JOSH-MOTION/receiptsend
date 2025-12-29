@@ -5,8 +5,12 @@ import mongoose from 'mongoose';
 import { Receipt, Contact, Organization } from '@/lib/models';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { sendSms } from '@/ai/flows/send-sms-flow';
+import { Resend } from 'resend';
 
 const MONGODB_URI = process.env.MONGODB_URI;
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+
+const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
 
 async function connectDB() {
   if (mongoose.connection.readyState >= 1) {
@@ -81,7 +85,34 @@ export async function POST(req: NextRequest) {
         );
     }
     
-    // 3. Send SMS if phone number is provided and there is a balance
+    // 3. Send Email
+    if (resend && data.customerEmail) {
+        let emailSubject = organization.emailSubject || `Your receipt from ${organization.companyName}`;
+        let emailBody = organization.emailBody || `Hi {{customer_name}}, thank you for your purchase. Please find your receipt details below.`;
+
+        // Replace placeholders
+        emailSubject = emailSubject.replace("{{business_name}}", organization.companyName);
+        emailBody = emailBody
+            .replace("{{customer_name}}", data.customerName)
+            .replace("{{business_name}}", organization.companyName)
+            .replace("{{amount}}", `$${data.totalAmount.toFixed(2)}`)
+            .replace("{{receipt_number}}", data.receiptNumber);
+        
+        try {
+            await resend.emails.send({
+                from: `${organization.companyName} <noreply@receiptrocket.co>`, // You will need to configure a verified domain with Resend
+                to: [data.customerEmail],
+                subject: emailSubject,
+                html: `<p>${emailBody.replace(/\n/g, "<br>")}</p>`, // Simple HTML version
+            });
+        } catch (emailError) {
+            console.error("Resend API error:", emailError);
+            // We don't block the response for email failure, just log it.
+        }
+    }
+
+
+    // 4. Send SMS if phone number is provided and there is a balance
     if (data.customerPhoneNumber && organization.smsBalance && organization.smsBalance > 0) {
         let smsMessage = organization.smsContent || "Your receipt from {{business_name}} for {{amount}} is #{{receipt_number}}.";
         smsMessage = smsMessage.replace("{{customer_name}}", data.customerName);
@@ -95,7 +126,7 @@ export async function POST(req: NextRequest) {
             recipients: [data.customerPhoneNumber]
         });
 
-        // 4. Decrement balance if SMS was sent successfully
+        // 5. Decrement balance if SMS was sent successfully
         if (smsResult.success) {
             organization.smsBalance -= 1;
             await organization.save();
