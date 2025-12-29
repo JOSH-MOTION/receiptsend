@@ -1,6 +1,5 @@
 "use client";
 
-import { useState } from "react";
 import { useFieldArray, useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
@@ -46,25 +45,35 @@ import { useRouter } from "next/navigation";
 
 const receiptSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
-  customerEmail: z.string().email("Invalid email address"),
+  customerEmail: z.string().email("Invalid email address").optional().or(z.literal("")),
   customerPhoneNumber: z.string().optional(),
-  items: z.array(z.object({
-    name: z.string().min(1, "Item or service name is required"),
-    quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
-    price: z.coerce.number().min(0.01, "Price is required"),
-  })).min(1, "At least one item is required"),
-  discount: z.coerce.number().min(0).optional(),
-  tax: z.coerce.number().min(0).optional(),
+
+  items: z.array(
+    z.object({
+      name: z.string().min(1, "Item or service name is required"),
+      quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
+      price: z.coerce.number().min(0.01, "Price must be greater than 0"),
+    })
+  ).min(1, "At least one item is required"),
+
+  discount: z.coerce.number().min(0).optional().default(0),
+  tax: z.coerce.number().min(0).optional().default(10),
 });
 
 type ReceiptFormValues = z.infer<typeof receiptSchema>;
 
 function ReceiptPreview({ receiptData, receiptNumber }: { receiptData: Partial<ReceiptFormValues>, receiptNumber: string }) {
   const { items = [], discount = 0, tax = 0 } = receiptData;
-  const subtotal = items.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0);
-  const discountAmount = (subtotal * (discount || 0)) / 100;
+
+  const subtotal = items.reduce((acc, item) => {
+    const qty = Number(item.quantity ?? 0);
+    const price = Number(item.price ?? 0);
+    return acc + qty * price;
+  }, 0);
+
+  const discountAmount = (subtotal * Number(discount)) / 100;
   const subtotalAfterDiscount = subtotal - discountAmount;
-  const taxAmount = (subtotalAfterDiscount * (tax || 0)) / 100;
+  const taxAmount = (subtotalAfterDiscount * Number(tax)) / 100;
   const total = subtotalAfterDiscount + taxAmount;
 
   return (
@@ -97,9 +106,13 @@ function ReceiptPreview({ receiptData, receiptNumber }: { receiptData: Partial<R
             {items.map((item, index) => (
               <li key={index} className="flex items-center justify-between">
                 <span className="text-muted-foreground">
-                  {item.name || "Item / Service"} ({item.quantity || 0} x ${item.price?.toFixed(2) || "0.00"})
+                  {item.name || "Item / Service"} (
+                  {Number(item.quantity ?? 0)} x ${Number(item.price ?? 0).toFixed(2)}
+                  )
                 </span>
-                <span>${((item.quantity || 0) * (item.price || 0)).toFixed(2)}</span>
+                <span>
+                  ${(Number(item.quantity ?? 0) * Number(item.price ?? 0)).toFixed(2)}
+                </span>
               </li>
             ))}
           </ul>
@@ -165,37 +178,36 @@ export default function NewReceiptPage() {
 
   const onSubmit = async (data: ReceiptFormValues) => {
     try {
-      const { items = [], discount = 0, tax = 0 } = data;
-      const subtotal = items.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0);
-      const discountAmount = (subtotal * (discount || 0)) / 100;
+      const subtotal = data.items.reduce((acc, item) => acc + item.quantity * item.price, 0);
+      const discountAmount = (subtotal * data.discount) / 100;
       const subtotalAfterDiscount = subtotal - discountAmount;
-      const taxAmount = (subtotalAfterDiscount * (tax || 0)) / 100;
+      const taxAmount = (subtotalAfterDiscount * data.tax) / 100;
       const total = subtotalAfterDiscount + taxAmount;
 
       const receiptData = {
         ...data,
-        receiptNumber: receiptNumber,
+        receiptNumber,
         totalAmount: total,
       };
 
-      const response = await fetch('/api/receipts', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+      const response = await fetch("/api/receipts", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify(receiptData),
       });
 
       if (response.ok) {
         toast({
           title: "Receipt Created",
-          description: "The new receipt has been saved and is being sent.",
+          description: "The new receipt has been saved and sent.",
         });
         router.push("/receipts");
       } else {
         const error = await response.json();
-        throw new Error(error.error || 'Failed to create receipt');
+        throw new Error(error.error || "Failed to create receipt");
       }
     } catch (error: any) {
-      console.error('Error creating receipt:', error);
+      console.error("Error creating receipt:", error);
       toast({
         title: "Error",
         description: error.message || "Failed to create receipt",
@@ -209,7 +221,7 @@ export default function NewReceiptPage() {
       <Form {...form}>
         <form onSubmit={form.handleSubmit(onSubmit)} className="mx-auto grid max-w-6xl flex-1 auto-rows-max gap-4">
           <div className="flex items-center gap-4">
-             <Breadcrumb>
+            <Breadcrumb>
               <BreadcrumbList>
                 <BreadcrumbItem>
                   <BreadcrumbLink asChild>
@@ -229,14 +241,16 @@ export default function NewReceiptPage() {
               </BreadcrumbList>
             </Breadcrumb>
             <div className="hidden items-center gap-2 md:ml-auto md:flex">
-              <Button variant="outline" size="sm" type="button" onClick={() => router.push('/receipts')}>
+              <Button variant="outline" size="sm" type="button" onClick={() => router.push("/receipts")}>
                 Cancel
               </Button>
               <Button type="submit" size="sm">Send Receipt</Button>
             </div>
           </div>
+
           <div className="grid gap-4 md:grid-cols-[1fr_250px] lg:grid-cols-3 lg:gap-8">
             <div className="grid auto-rows-max items-start gap-4 lg:col-span-2 lg:gap-8">
+              {/* Customer Details */}
               <Card>
                 <CardHeader>
                   <CardTitle>Customer Details</CardTitle>
@@ -260,7 +274,7 @@ export default function NewReceiptPage() {
                     name="customerEmail"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Email</FormLabel>
+                        <FormLabel>Email (optional)</FormLabel>
                         <FormControl>
                           <Input placeholder="john.doe@example.com" {...field} />
                         </FormControl>
@@ -273,7 +287,7 @@ export default function NewReceiptPage() {
                     name="customerPhoneNumber"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>Phone</FormLabel>
+                        <FormLabel>Phone (optional)</FormLabel>
                         <FormControl>
                           <Input placeholder="+1 555 123 4567" {...field} />
                         </FormControl>
@@ -283,6 +297,8 @@ export default function NewReceiptPage() {
                   />
                 </CardContent>
               </Card>
+
+              {/* Items Table */}
               <Card>
                 <CardHeader>
                   <CardTitle>Items</CardTitle>
@@ -310,7 +326,7 @@ export default function NewReceiptPage() {
                                   <FormControl>
                                     <Input placeholder="e.g. Portrait Session" {...field} />
                                   </FormControl>
-                                  <FormMessage/>
+                                  <FormMessage />
                                 </FormItem>
                               )}
                             />
@@ -322,35 +338,45 @@ export default function NewReceiptPage() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormControl>
-                                    <Input type="number" {...field} />
+                                    <Input type="number" min="1" step="1" {...field} />
                                   </FormControl>
-                                  <FormMessage/>
+                                  <FormMessage />
                                 </FormItem>
                               )}
                             />
                           </TableCell>
                           <TableCell className="text-right">
-                             <FormField
+                            <FormField
                               control={form.control}
                               name={`items.${index}.price`}
                               render={({ field }) => (
                                 <FormItem>
                                   <FormControl>
-                                    <Input type="number" className="text-right" {...field} />
+                                    <Input
+                                      type="number"
+                                      step="0.01"
+                                      min="0"
+                                      className="text-right"
+                                      placeholder="0.00"
+                                      {...field}
+                                    />
                                   </FormControl>
-                                  <FormMessage/>
+                                  <FormMessage />
                                 </FormItem>
                               )}
                             />
                           </TableCell>
                           <TableCell className="text-right">
-                            ${((watchedValues.items?.[index]?.quantity || 0) * (watchedValues.items?.[index]?.price || 0)).toFixed(2)}
+                            ${(
+                              Number(watchedValues.items?.[index]?.quantity ?? 0) *
+                              Number(watchedValues.items?.[index]?.price ?? 0)
+                            ).toFixed(2)}
                           </TableCell>
                           <TableCell>
-                            <Button 
+                            <Button
                               type="button"
-                              variant="ghost" 
-                              size="icon" 
+                              variant="ghost"
+                              size="icon"
                               onClick={() => remove(index)}
                               disabled={fields.length === 1}
                             >
@@ -361,51 +387,55 @@ export default function NewReceiptPage() {
                       ))}
                     </TableBody>
                   </Table>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    size="sm" 
-                    className="mt-4" 
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    className="mt-4"
                     onClick={() => append({ name: "", quantity: 1, price: 0 })}
                   >
                     <PlusCircle className="h-4 w-4 mr-2" /> Add Item / Service
                   </Button>
                 </CardContent>
               </Card>
+
+              {/* Summary */}
               <Card>
                 <CardHeader>
                   <CardTitle>Summary</CardTitle>
                 </CardHeader>
                 <CardContent className="grid gap-4 md:grid-cols-2">
-                    <FormField
-                      control={form.control}
-                      name="discount"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Discount (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="tax"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Tax (%)</FormLabel>
-                          <FormControl>
-                            <Input type="number" {...field} />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
+                  <FormField
+                    control={form.control}
+                    name="discount"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Discount (%)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="tax"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Tax (%)</FormLabel>
+                        <FormControl>
+                          <Input type="number" min="0" step="0.01" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                 </CardContent>
               </Card>
             </div>
+
+            {/* Preview Sidebar */}
             <div className="grid auto-rows-max items-start gap-4 lg:gap-8">
               <Card>
                 <CardHeader>
@@ -417,8 +447,10 @@ export default function NewReceiptPage() {
               </Card>
             </div>
           </div>
+
+          {/* Mobile buttons */}
           <div className="flex items-center justify-center gap-2 md:hidden">
-            <Button variant="outline" size="sm" type="button" onClick={() => router.push('/receipts')}>
+            <Button variant="outline" size="sm" type="button" onClick={() => router.push("/receipts")}>
               Cancel
             </Button>
             <Button type="submit" size="sm">Send Receipt</Button>

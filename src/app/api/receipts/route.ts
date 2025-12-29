@@ -4,8 +4,9 @@ import { getServerSession } from 'next-auth';
 import mongoose from 'mongoose';
 import { Receipt, Contact, Organization } from '@/lib/models';
 import { authOptions } from '@/app/api/auth/[...nextauth]/route';
-import { sendSms } from '@/ai/flows/send-sms-flow';
+
 import { Resend } from 'resend';
+import { sendSms } from '@/lib/sms';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
