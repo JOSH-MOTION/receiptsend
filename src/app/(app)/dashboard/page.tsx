@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -34,8 +33,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 import Link from "next/link"
 import React, { useMemo, useState, useEffect } from "react";
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, limit } from "firebase/firestore";
+import { useSession } from 'next-auth/react';
 import { format, subHours, subMonths } from "date-fns";
 
 const chartConfig = {
@@ -46,29 +44,39 @@ const chartConfig = {
 }
 
 export default function Dashboard() {
-  const { user } = useUser();
-  const firestore = useFirestore();
+  const { data: session } = useSession();
+  const [allReceipts, setAllReceipts] = useState<any[]>([]);
+  const [recentReceipts, setRecentReceipts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  const receiptsRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return collection(firestore, `organizations/${user.uid}/receipts`);
-  }, [firestore, user]);
+  useEffect(() => {
+    if (session) {
+      fetchReceipts();
+    }
+  }, [session]);
 
-  const recentReceiptsQuery = useMemoFirebase(() => {
-    if (!receiptsRef) return null;
-    return query(receiptsRef, orderBy("createdAt", "desc"), limit(5));
-  }, [receiptsRef]);
-
-  const { data: allReceipts, isLoading: isLoadingAllReceipts } = useCollection(receiptsRef);
-  const { data: recentReceipts, isLoading: isLoadingRecent } = useCollection(recentReceiptsQuery);
+  const fetchReceipts = async () => {
+    try {
+      const response = await fetch('/api/receipts');
+      if (response.ok) {
+        const data = await response.json();
+        setAllReceipts(data);
+        setRecentReceipts(data.slice(0, 5));
+      }
+    } catch (error) {
+      console.error('Error fetching receipts:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   const stats = useMemo(() => {
-    if (!allReceipts || !isClient) {
+    if (!allReceipts || allReceipts.length === 0 || !isClient) {
       return {
         totalRevenue: 0,
         receiptsSent: 0,
@@ -116,7 +124,6 @@ export default function Dashboard() {
     const receiptsPercentage = prevMonthReceipts > 0 ? ((receiptsLastMonth - prevMonthReceipts) / prevMonthReceipts) * 100 : receiptsLastMonth > 0 ? 100 : 0;
     const customersPercentage = prevMonthCustomers > 0 ? ((customersLastMonth.size - prevMonthCustomers) / prevMonthCustomers) * 100 : customersLastMonth.size > 0 ? 100 : 0;
 
-
     return {
       totalRevenue,
       receiptsSent,
@@ -130,7 +137,6 @@ export default function Dashboard() {
 
   const chartData = useMemo(() => {
     if (!isClient) {
-      // Return a placeholder structure for SSR
       return Array.from({ length: 12 }, (_, i) => ({ month: `M${i+1}`, total: 0 }));
     }
     
@@ -140,7 +146,7 @@ export default function Dashboard() {
       return { month: format(d, 'MMMM'), total: 0 };
     }).reverse();
 
-    if (allReceipts) {
+    if (allReceipts && allReceipts.length > 0) {
       allReceipts.forEach(receipt => {
         const receiptMonth = format(new Date(receipt.createdAt), 'MMMM');
         const monthData = months.find(m => m.month === receiptMonth);
@@ -151,7 +157,6 @@ export default function Dashboard() {
     }
     return months;
   }, [allReceipts, isClient]);
-
 
   return (
     <>
@@ -242,7 +247,7 @@ export default function Dashboard() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {isLoadingRecent ? (
+                {isLoading ? (
                   Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><div className="font-medium">Loading...</div></TableCell>
@@ -253,7 +258,7 @@ export default function Dashboard() {
                   ))
                 ) : recentReceipts && recentReceipts.length > 0 ? (
                   recentReceipts.map(receipt => (
-                    <TableRow key={receipt.id}>
+                    <TableRow key={receipt._id}>
                       <TableCell>
                         <div className="font-medium">{receipt.customerName}</div>
                         <div className="hidden text-sm text-muted-foreground md:inline">
@@ -286,7 +291,7 @@ export default function Dashboard() {
             <CardDescription>An overview of your receipts sent this year.</CardDescription>
           </CardHeader>
           <CardContent>
-             {(isLoadingAllReceipts || !isClient) ? (
+             {(isLoading || !isClient) ? (
               <div className="h-64 w-full flex items-center justify-center">Loading...</div>
             ) : (
             <ChartContainer config={chartConfig} className="h-64 w-full">

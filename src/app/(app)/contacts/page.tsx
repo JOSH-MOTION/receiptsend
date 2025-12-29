@@ -1,11 +1,10 @@
 'use client';
+
 import {
   File,
-  ListFilter,
   PlusCircle,
 } from "lucide-react"
 
-import { Badge } from "@/components/ui/badge"
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -24,14 +23,6 @@ import {
   CardTitle,
 } from "@/components/ui/card"
 import {
-  DropdownMenu,
-  DropdownMenuCheckboxItem,
-  DropdownMenuContent,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu"
-import {
   Table,
   TableBody,
   TableCell,
@@ -40,25 +31,34 @@ import {
   TableRow,
 } from "@/components/ui/table"
 import Link from "next/link"
-import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, orderBy, query } from "firebase/firestore";
+import { useSession } from 'next-auth/react';
 import { format } from "date-fns";
+import { useState, useEffect } from "react";
 
 export default function ContactsPage() {
-    const { user } = useUser();
-    const firestore = useFirestore();
+    const { data: session } = useSession();
+    const [contacts, setContacts] = useState<any[]>([]);
+    const [isLoading, setIsLoading] = useState(true);
 
-    const contactsRef = useMemoFirebase(() => {
-        if (!user) return null;
-        return collection(firestore, `organizations/${user.uid}/contacts`);
-    }, [firestore, user]);
+    useEffect(() => {
+        if (session) {
+            fetchContacts();
+        }
+    }, [session]);
 
-    const contactsQuery = useMemoFirebase(() => {
-        if (!contactsRef) return null;
-        return query(contactsRef, orderBy("createdAt", "desc"));
-    }, [contactsRef]);
-
-    const { data: contacts, isLoading: isLoadingContacts } = useCollection(contactsQuery);
+    const fetchContacts = async () => {
+        try {
+            const response = await fetch('/api/contacts');
+            if (response.ok) {
+                const data = await response.json();
+                setContacts(data);
+            }
+        } catch (error) {
+            console.error('Error fetching contacts:', error);
+        } finally {
+            setIsLoading(false);
+        }
+    };
 
   return (
     <>
@@ -113,7 +113,7 @@ export default function ContactsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {isLoadingContacts ? (
+              {isLoading ? (
                 Array.from({ length: 5 }).map((_, i) => (
                     <TableRow key={i}>
                       <TableCell><div className="font-medium">Loading...</div></TableCell>
@@ -124,7 +124,7 @@ export default function ContactsPage() {
                   ))
               ) : contacts && contacts.length > 0 ? (
                 contacts.map((contact) => (
-                <TableRow key={contact.id}>
+                <TableRow key={contact._id}>
                   <TableCell className="font-medium">{contact.name}</TableCell>
                   <TableCell>{contact.email}</TableCell>
                   <TableCell className="hidden md:table-cell">
@@ -137,7 +137,7 @@ export default function ContactsPage() {
                 ))
               ) : (
                 <TableRow>
-                    <TableCell colSpan={4} className="text-center">No contacts found.</TableCell>
+                    <TableCell colSpan={4} className="text-center">No contacts found. Contacts are automatically created when you create receipts.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -152,5 +152,3 @@ export default function ContactsPage() {
     </>
   )
 }
-
-    

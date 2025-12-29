@@ -34,9 +34,8 @@ import {
   SidebarFooter,
 } from "@/components/ui/sidebar";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useAuth, useUser } from "@/firebase";
+import { useSession, signOut } from 'next-auth/react';
 import { Skeleton } from "./ui/skeleton";
-import { useAuth as useAppAuth } from "@/hooks/use-auth";
 
 function NavLink({
   href,
@@ -68,14 +67,13 @@ function NavLink({
 }
 
 export function AppShell({ children }: { children: React.ReactNode }) {
-  useAppAuth({ required: true });
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
-  const auth = useAuth();
-  const { user, isUserLoading } = useUser();
+  const { data: session, status } = useSession();
   const router = useRouter();
+  const isUserLoading = status === 'loading';
 
   const handleLogout = async () => {
-    await auth.signOut();
+    await signOut({ redirect: false });
     router.push('/login');
   };
 
@@ -119,14 +117,16 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   ) : (
                     <>
                       <Avatar className="h-8 w-8">
-                        <AvatarImage src={user?.photoURL || userAvatar?.imageUrl} alt={user?.displayName || userAvatar?.description} data-ai-hint={userAvatar?.imageHint} />
+                        <AvatarImage src={userAvatar?.imageUrl} alt={userAvatar?.description} data-ai-hint={userAvatar?.imageHint} />
                         <AvatarFallback>
-                          {user?.email?.charAt(0).toUpperCase() || 'U'}
+                          {session?.user?.email?.charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col items-start">
-                        <span className="text-sm font-semibold">{user?.displayName || "Acme Inc."}</span>
-                        <span className="text-xs text-muted-foreground -mt-0.5">{user?.email}</span>
+                        <span className="text-sm font-semibold">
+                          {(session?.user as any)?.name || "Acme Inc."}
+                        </span>
+                        <span className="text-xs text-muted-foreground -mt-0.5">{session?.user?.email}</span>
                       </div>
                     </>
                   )}
@@ -163,5 +163,3 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
-
-    

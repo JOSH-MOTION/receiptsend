@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState } from "react";
@@ -41,26 +40,14 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import Link from "next/link";
-import { PlusCircle, Rocket, Trash2, Wand2 } from "lucide-react";
-import { enhanceReceiptLayout } from "@/ai/flows/receipt-layout-enhancement";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
+import { PlusCircle, Rocket, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
-import { Skeleton } from "@/components/ui/skeleton";
-import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
-import { collection } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 const receiptSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
   customerEmail: z.string().email("Invalid email address"),
-  customerPhone: z.string().optional(),
+  customerPhoneNumber: z.string().optional(),
   items: z.array(z.object({
     name: z.string().min(1, "Item or service name is required"),
     quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
@@ -86,7 +73,7 @@ function ReceiptPreview({ receiptData, receiptNumber }: { receiptData: Partial<R
         <div className="grid gap-0.5">
           <CardTitle className="group flex items-center gap-2 text-lg">
             <Rocket className="h-6 w-6" />
-            <span>Acme Inc.</span>
+            <span>ReceiptRocket</span>
           </CardTitle>
           <CardDescription>Receipt Number: {receiptNumber}</CardDescription>
         </div>
@@ -153,12 +140,7 @@ function ReceiptPreview({ receiptData, receiptNumber }: { receiptData: Partial<R
 }
 
 export default function NewReceiptPage() {
-  const [isAiLoading, setIsAiLoading] = useState(false);
-  const [aiSuggestions, setAiSuggestions] = useState<{ enhancedLayout: string; suggestions: string[] } | null>(null);
-  const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
   const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user } = useUser();
   const router = useRouter();
   const receiptNumber = `RCPT-${Date.now()}`;
 
@@ -167,7 +149,7 @@ export default function NewReceiptPage() {
     defaultValues: {
       customerName: "",
       customerEmail: "",
-      customerPhone: "",
+      customerPhoneNumber: "",
       items: [{ name: "", quantity: 1, price: 0 }],
       discount: 0,
       tax: 10,
@@ -180,83 +162,46 @@ export default function NewReceiptPage() {
   });
 
   const watchedValues = form.watch();
-  
-  const handleEnhanceWithAI = async () => {
-    setIsAiDialogOpen(true);
-    setIsAiLoading(true);
-    setAiSuggestions(null);
+
+  const onSubmit = async (data: ReceiptFormValues) => {
     try {
-      const currentLayoutHtml = document.getElementById("receipt-preview-content")?.innerHTML || "";
-      const result = await enhanceReceiptLayout({
-        currentLayout: currentLayoutHtml,
-        priorLayouts: [],
-        emailCopy: "Thank you for your purchase! Your receipt is attached.",
-        smsWording: "Hi {{customer_name}}, thanks for your purchase of {{amount}} from {{business_name}}. Your receipt is {{receipt_number}}.",
-        companyBranding: "Company: Acme Inc., Colors: Blue (#2962FF) and Teal (#26A69A)",
+      const { items = [], discount = 0, tax = 0 } = data;
+      const subtotal = items.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0);
+      const discountAmount = (subtotal * (discount || 0)) / 100;
+      const subtotalAfterDiscount = subtotal - discountAmount;
+      const taxAmount = (subtotalAfterDiscount * (tax || 0)) / 100;
+      const total = subtotalAfterDiscount + taxAmount;
+
+      const receiptData = {
+        ...data,
+        receiptNumber: receiptNumber,
+        totalAmount: total,
+      };
+
+      const response = await fetch('/api/receipts', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(receiptData),
       });
-      setAiSuggestions(result);
-    } catch (error) {
-      console.error("AI enhancement failed:", error);
+
+      if (response.ok) {
+        toast({
+          title: "Receipt Created",
+          description: "The new receipt has been saved and is being sent.",
+        });
+        router.push("/receipts");
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to create receipt');
+      }
+    } catch (error: any) {
+      console.error('Error creating receipt:', error);
       toast({
-        title: "AI Enhancement Failed",
-        description: "Could not get suggestions from AI. Please try again.",
+        title: "Error",
+        description: error.message || "Failed to create receipt",
         variant: "destructive",
       });
-      setIsAiDialogOpen(false);
-    } finally {
-      setIsAiLoading(false);
     }
-  };
-
-  const onSubmit = (data: ReceiptFormValues) => {
-    if (!user) {
-      toast({
-        title: "Authentication Error",
-        description: "You must be logged in to create a receipt.",
-        variant: "destructive",
-      });
-      return;
-    }
-
-    const { items = [], discount = 0, tax = 0 } = data;
-    const subtotal = items.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0);
-    const discountAmount = (subtotal * (discount || 0)) / 100;
-    const subtotalAfterDiscount = subtotal - discountAmount;
-    const taxAmount = (subtotalAfterDiscount * (tax || 0)) / 100;
-    const total = subtotalAfterDiscount + taxAmount;
-
-    const receiptData = {
-      ...data,
-      id: receiptNumber,
-      receiptNumber: receiptNumber,
-      organizationId: user.uid,
-      totalAmount: total,
-      createdAt: new Date().toISOString(),
-      pdfUrl: "" // This will be updated later
-    };
-
-    const receiptsColRef = collection(firestore, `organizations/${user.uid}/receipts`);
-    addDocumentNonBlocking(receiptsColRef, receiptData);
-
-    // Save contact
-    const contactData = {
-      id: `${user.uid}-${data.customerEmail}`,
-      organizationId: user.uid,
-      name: data.customerName,
-      email: data.customerEmail,
-      phoneNumber: data.customerPhone,
-      createdAt: new Date().toISOString(),
-    }
-    const contactsColRef = collection(firestore, `organizations/${user.uid}/contacts`);
-    addDocumentNonBlocking(contactsColRef, contactData);
-
-
-    toast({
-      title: "Receipt Created",
-      description: "The new receipt has been saved and is being sent.",
-    });
-
-    router.push("/receipts");
   };
 
   return (
@@ -325,7 +270,7 @@ export default function NewReceiptPage() {
                   />
                   <FormField
                     control={form.control}
-                    name="customerPhone"
+                    name="customerPhoneNumber"
                     render={({ field }) => (
                       <FormItem>
                         <FormLabel>Phone</FormLabel>
@@ -402,7 +347,13 @@ export default function NewReceiptPage() {
                             ${((watchedValues.items?.[index]?.quantity || 0) * (watchedValues.items?.[index]?.price || 0)).toFixed(2)}
                           </TableCell>
                           <TableCell>
-                            <Button variant="ghost" size="icon" onClick={() => remove(index)}>
+                            <Button 
+                              type="button"
+                              variant="ghost" 
+                              size="icon" 
+                              onClick={() => remove(index)}
+                              disabled={fields.length === 1}
+                            >
                               <Trash2 className="h-4 w-4" />
                             </Button>
                           </TableCell>
@@ -410,7 +361,13 @@ export default function NewReceiptPage() {
                       ))}
                     </TableBody>
                   </Table>
-                  <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ name: "", quantity: 1, price: 0 })}>
+                  <Button 
+                    type="button" 
+                    variant="outline" 
+                    size="sm" 
+                    className="mt-4" 
+                    onClick={() => append({ name: "", quantity: 1, price: 0 })}
+                  >
                     <PlusCircle className="h-4 w-4 mr-2" /> Add Item / Service
                   </Button>
                 </CardContent>
@@ -454,46 +411,9 @@ export default function NewReceiptPage() {
                 <CardHeader>
                   <CardTitle>Receipt Preview</CardTitle>
                 </CardHeader>
-                <CardContent id="receipt-preview-content">
+                <CardContent>
                   <ReceiptPreview receiptData={watchedValues} receiptNumber={receiptNumber} />
                 </CardContent>
-                <CardFooter>
-                  <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
-                    <DialogTrigger asChild>
-                      <Button variant="outline" className="w-full" onClick={handleEnhanceWithAI}>
-                        <Wand2 className="h-4 w-4 mr-2" /> Enhance with AI
-                      </Button>
-                    </DialogTrigger>
-                    <DialogContent className="sm:max-w-[600px]">
-                      <DialogHeader>
-                        <DialogTitle>AI Suggestions</DialogTitle>
-                        <DialogDescription>
-                          Here are some AI-powered suggestions to improve your receipt layout.
-                        </DialogDescription>
-                      </DialogHeader>
-                      {isAiLoading && <div className="py-8 text-center flex flex-col items-center gap-4">
-                        <Skeleton className="h-48 w-full" />
-                        <Skeleton className="h-4 w-3/4" />
-                        <Skeleton className="h-4 w-1/2" />
-                        </div>}
-                      {aiSuggestions && (
-                        <div className="grid gap-4 py-4">
-                          <div className="p-4 border rounded-lg bg-muted/50 max-h-64 overflow-y-auto">
-                            <h4 className="font-semibold mb-2">Enhanced Layout Preview</h4>
-                            <div dangerouslySetInnerHTML={{ __html: aiSuggestions.enhancedLayout }} />
-                          </div>
-                          <div>
-                            <h4 className="font-semibold mb-2">Suggestions</h4>
-                            <ul className="list-disc pl-5 space-y-1 text-sm text-muted-foreground">
-                              {aiSuggestions.suggestions.map((s, i) => <li key={i}>{s}</li>)}
-                            </ul>
-                          </div>
-                          <Button>Apply Suggestions</Button>
-                        </div>
-                      )}
-                    </DialogContent>
-                  </Dialog>
-                </CardFooter>
               </Card>
             </div>
           </div>
@@ -506,6 +426,5 @@ export default function NewReceiptPage() {
         </form>
       </Form>
     </>
-    
-
-    
+  );
+}

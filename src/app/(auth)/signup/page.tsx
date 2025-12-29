@@ -3,18 +3,15 @@
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
-import { Label } from "@/components/ui/label";
 import Link from "next/link";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useAuth, useFirestore } from "@/firebase";
-import { initiateEmailSignUp } from "@/firebase/non-blocking-login";
-import { doc } from "firebase/firestore";
-import { setDocumentNonBlocking } from "@/firebase/non-blocking-updates";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth as useAppAuth } from "@/hooks/use-auth";
+import { useAuth } from "@/hooks/use-auth-new";
+import { signIn } from 'next-auth/react';
+import { useState } from 'react';
 
 const signupSchema = z.object({
   organizationName: z.string().min(2, "Organization name is required"),
@@ -25,10 +22,9 @@ const signupSchema = z.object({
 type SignupFormValues = z.infer<typeof signupSchema>;
 
 export default function SignupPage() {
-  const auth = useAuth();
-  const firestore = useFirestore();
   const { toast } = useToast();
-  useAppAuth({ required: false });
+  const [isLoading, setIsLoading] = useState(false);
+  useAuth({ required: false });
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -40,39 +36,49 @@ export default function SignupPage() {
   });
 
   const onSubmit = async (data: SignupFormValues) => {
+    setIsLoading(true);
     try {
-      // We use a trick here: create the user but don't wait for the result.
-      // We'll get the user from the onAuthStateChanged listener.
-      // This is a non-blocking UI pattern.
-      initiateEmailSignUp(auth, data.email, data.password);
-
-      // We can't know the UID yet, so we listen for auth state changes.
-      const unsubscribe = auth.onAuthStateChanged(user => {
-        if (user) {
-          unsubscribe(); // Stop listening
-          const orgData = {
-            id: user.uid,
-            companyName: data.organizationName,
-            email: data.email,
-            createdAt: new Date().toISOString(),
-          };
-          const orgDocRef = doc(firestore, `organizations/${user.uid}`);
-          setDocumentNonBlocking(orgDocRef, orgData, { merge: true });
-
-          toast({
-            title: "Account Created!",
-            description: "You are now being redirected to the dashboard.",
-          });
-        }
+      const response = await fetch('/api/auth/signup', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
       });
 
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.error || 'Signup failed');
+      }
+
+      toast({
+        title: "Account Created!",
+        description: "Logging you in...",
+      });
+
+      // Auto login after signup
+      const signInResult = await signIn('credentials', {
+        email: data.email,
+        password: data.password,
+        redirect: false,
+      });
+
+      if (signInResult?.error) {
+        toast({
+          title: "Login Failed",
+          description: "Please try logging in manually",
+          variant: "destructive",
+        });
+      } else {
+        window.location.href = '/dashboard';
+      }
     } catch (error: any) {
-      console.error(error);
       toast({
         title: "Signup Failed",
         description: error.message || "Could not create your account. Please try again.",
         variant: "destructive",
       });
+    } finally {
+      setIsLoading(false);
     }
   };
 
@@ -126,11 +132,8 @@ export default function SignupPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full">
-              Create an account
-            </Button>
-            <Button variant="outline" className="w-full" disabled>
-              Sign up with Google
+            <Button type="submit" className="w-full" disabled={isLoading}>
+              {isLoading ? 'Creating account...' : 'Create an account'}
             </Button>
           </form>
         </Form>

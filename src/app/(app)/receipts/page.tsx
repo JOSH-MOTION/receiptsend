@@ -1,3 +1,5 @@
+'use client';
+
 import {
   File,
   ListFilter,
@@ -47,51 +49,35 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs"
 import Link from "next/link"
-
-const receipts = [
-  {
-    id: "RCPT001",
-    customer: "Liam Johnson",
-    email: "liam@example.com",
-    status: "Sent",
-    date: "2023-06-23",
-    amount: "$250.00",
-  },
-  {
-    id: "RCPT002",
-    customer: "Olivia Smith",
-    email: "olivia@example.com",
-    status: "Draft",
-    date: "2023-06-24",
-    amount: "$150.00",
-  },
-  {
-    id: "RCPT003",
-    customer: "Noah Williams",
-    email: "noah@example.com",
-    status: "Sent",
-    date: "2023-06-25",
-    amount: "$350.00",
-  },
-  {
-    id: "RCPT004",
-    customer: "Emma Brown",
-    email: "emma@example.com",
-    status: "Sent",
-    date: "2023-06-26",
-    amount: "$450.00",
-  },
-  {
-    id: "RCPT005",
-    customer: "James Jones",
-    email: "james@example.com",
-    status: "Failed",
-    date: "2023-06-27",
-    amount: "$550.00",
-  },
-];
+import { useSession } from 'next-auth/react';
+import { useState, useEffect } from "react";
+import { format } from "date-fns";
 
 export default function ReceiptsPage() {
+  const { data: session } = useSession();
+  const [receipts, setReceipts] = useState<any[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+
+  useEffect(() => {
+    if (session) {
+      fetchReceipts();
+    }
+  }, [session]);
+
+  const fetchReceipts = async () => {
+    try {
+      const response = await fetch('/api/receipts');
+      if (response.ok) {
+        const data = await response.json();
+        setReceipts(data);
+      }
+    } catch (error) {
+      console.error('Error fetching receipts:', error);
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   return (
     <>
       <div className="flex items-center gap-4">
@@ -130,10 +116,6 @@ export default function ReceiptsPage() {
           <TabsList>
             <TabsTrigger value="all">All</TabsTrigger>
             <TabsTrigger value="sent">Sent</TabsTrigger>
-            <TabsTrigger value="draft">Draft</TabsTrigger>
-            <TabsTrigger value="failed" className="hidden sm:flex">
-              Failed
-            </TabsTrigger>
           </TabsList>
           <div className="ml-auto flex items-center gap-2">
             <DropdownMenu>
@@ -149,11 +131,7 @@ export default function ReceiptsPage() {
                 <DropdownMenuLabel>Filter by</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuCheckboxItem checked>
-                  Sent
-                </DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>Draft</DropdownMenuCheckboxItem>
-                <DropdownMenuCheckboxItem>
-                  Failed
+                  All
                 </DropdownMenuCheckboxItem>
               </DropdownMenuContent>
             </DropdownMenu>
@@ -186,53 +164,106 @@ export default function ReceiptsPage() {
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {receipts.map((receipt) => (
-                    <TableRow key={receipt.id}>
-                      <TableCell className="font-medium">{receipt.id}</TableCell>
-                      <TableCell>
-                        <div className="font-medium">{receipt.customer}</div>
-                        <div className="text-sm text-muted-foreground">{receipt.email}</div>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        <Badge variant={
-                          receipt.status === "Sent" ? "secondary" : 
-                          receipt.status === "Draft" ? "outline" : "destructive"
-                        }>{receipt.status}</Badge>
-                      </TableCell>
-                      <TableCell className="hidden md:table-cell">
-                        {receipt.date}
-                      </TableCell>
-                      <TableCell className="text-right">{receipt.amount}</TableCell>
-                      <TableCell>
-                        <DropdownMenu>
-                          <DropdownMenuTrigger asChild>
-                            <Button
-                              aria-haspopup="true"
-                              size="icon"
-                              variant="ghost"
-                            >
-                              <MoreHorizontal className="h-4 w-4" />
-                              <span className="sr-only">Toggle menu</span>
-                            </Button>
-                          </DropdownMenuTrigger>
-                          <DropdownMenuContent align="end">
-                            <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                            <DropdownMenuItem>View Details</DropdownMenuItem>
-                            <DropdownMenuItem>Download PDF</DropdownMenuItem>
-                            <DropdownMenuItem>Resend</DropdownMenuItem>
-                          </DropdownMenuContent>
-                        </DropdownMenu>
+                  {isLoading ? (
+                    Array.from({ length: 5 }).map((_, i) => (
+                      <TableRow key={i}>
+                        <TableCell className="font-medium">Loading...</TableCell>
+                        <TableCell>...</TableCell>
+                        <TableCell className="hidden md:table-cell">...</TableCell>
+                        <TableCell className="hidden md:table-cell">...</TableCell>
+                        <TableCell className="text-right">...</TableCell>
+                        <TableCell></TableCell>
+                      </TableRow>
+                    ))
+                  ) : receipts && receipts.length > 0 ? (
+                    receipts.map((receipt) => (
+                      <TableRow key={receipt._id}>
+                        <TableCell className="font-medium">{receipt.receiptNumber}</TableCell>
+                        <TableCell>
+                          <div className="font-medium">{receipt.customerName}</div>
+                          <div className="text-sm text-muted-foreground">{receipt.customerEmail}</div>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          <Badge variant="secondary">Sent</Badge>
+                        </TableCell>
+                        <TableCell className="hidden md:table-cell">
+                          {format(new Date(receipt.createdAt), "yyyy-MM-dd")}
+                        </TableCell>
+                        <TableCell className="text-right">${receipt.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell>
+                          <DropdownMenu>
+                            <DropdownMenuTrigger asChild>
+                              <Button
+                                aria-haspopup="true"
+                                size="icon"
+                                variant="ghost"
+                              >
+                                <MoreHorizontal className="h-4 w-4" />
+                                <span className="sr-only">Toggle menu</span>
+                              </Button>
+                            </DropdownMenuTrigger>
+                            <DropdownMenuContent align="end">
+                              <DropdownMenuLabel>Actions</DropdownMenuLabel>
+                              <DropdownMenuItem>View Details</DropdownMenuItem>
+                              <DropdownMenuItem>Download PDF</DropdownMenuItem>
+                              <DropdownMenuItem>Resend</DropdownMenuItem>
+                            </DropdownMenuContent>
+                          </DropdownMenu>
+                        </TableCell>
+                      </TableRow>
+                    ))
+                  ) : (
+                    <TableRow>
+                      <TableCell colSpan={6} className="text-center">
+                        No receipts found. Create your first receipt!
                       </TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
             <CardFooter>
               <div className="text-xs text-muted-foreground">
-                Showing <strong>1-5</strong> of <strong>{receipts.length}</strong> receipts
+                Showing <strong>1-{receipts.length}</strong> of <strong>{receipts.length}</strong> receipts
               </div>
             </CardFooter>
+          </Card>
+        </TabsContent>
+        <TabsContent value="sent">
+          <Card>
+            <CardHeader>
+              <CardTitle>Sent Receipts</CardTitle>
+              <CardDescription>
+                All receipts that have been sent to customers.
+              </CardDescription>
+            </CardHeader>
+            <CardContent>
+              <Table>
+                <TableHeader>
+                  <TableRow>
+                    <TableHead>Receipt ID</TableHead>
+                    <TableHead>Customer</TableHead>
+                    <TableHead className="hidden md:table-cell">Date</TableHead>
+                    <TableHead className="text-right">Amount</TableHead>
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {receipts.map((receipt) => (
+                    <TableRow key={receipt._id}>
+                      <TableCell className="font-medium">{receipt.receiptNumber}</TableCell>
+                      <TableCell>
+                        <div className="font-medium">{receipt.customerName}</div>
+                        <div className="text-sm text-muted-foreground">{receipt.customerEmail}</div>
+                      </TableCell>
+                      <TableCell className="hidden md:table-cell">
+                        {format(new Date(receipt.createdAt), "yyyy-MM-dd")}
+                      </TableCell>
+                      <TableCell className="text-right">${receipt.totalAmount.toFixed(2)}</TableCell>
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CardContent>
           </Card>
         </TabsContent>
       </Tabs>

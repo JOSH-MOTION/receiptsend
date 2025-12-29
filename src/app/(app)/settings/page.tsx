@@ -1,4 +1,3 @@
-
 "use client";
 
 import {
@@ -25,34 +24,25 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload, MessageCircle } from "lucide-react";
+import { Upload } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { z } from "zod";
 import { useForm } from "react-hook-form";
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useFirestore, useUser, useDoc, updateDocumentNonBlocking, useMemoFirebase } from "@/firebase";
-import { doc } from "firebase/firestore";
+import { useSession } from 'next-auth/react';
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useEffect, useState } from "react";
-import {
-  Dialog,
-  DialogContent,
-  DialogDescription,
-  DialogHeader,
-  DialogTitle,
-  DialogTrigger,
-} from "@/components/ui/dialog";
 
 const orgSettingsSchema = z.object({
   companyName: z.string().min(1, "Organization name is required"),
   email: z.string().email(),
   phoneNumber: z.string().optional(),
   address: z.string().optional(),
-  logoUrl: z.string().url().optional(),
+  logoUrl: z.string().url().optional().or(z.literal('')),
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   smsContent: z.string().optional(),
@@ -63,16 +53,10 @@ type OrgSettingsFormValues = z.infer<typeof orgSettingsSchema>;
 
 export default function SettingsPage() {
   const { toast } = useToast();
-  const firestore = useFirestore();
-  const { user, isUserLoading } = useUser();
+  const { data: session, status } = useSession();
   const companyLogo = PlaceHolderImages.find((p) => p.id === "company-logo");
-
-  const orgRef = useMemoFirebase(() => {
-    if (!user) return null;
-    return doc(firestore, `organizations/${user.uid}`);
-  }, [firestore, user]);
-
-  const { data: orgData, isLoading: isOrgDataLoading } = useDoc<OrgSettingsFormValues>(orgRef);
+  const [orgData, setOrgData] = useState<OrgSettingsFormValues | null>(null);
+  const [isLoading, setIsLoading] = useState(true);
 
   const form = useForm<OrgSettingsFormValues>({
     resolver: zodResolver(orgSettingsSchema),
@@ -90,23 +74,53 @@ export default function SettingsPage() {
   });
 
   useEffect(() => {
-    if (orgData) {
-      form.reset(orgData);
+    if (session) {
+      fetchOrganization();
     }
-  }, [orgData, form]);
+  }, [session]);
 
-  const onSubmit = (data: OrgSettingsFormValues) => {
-    if (!orgRef) return;
-    updateDocumentNonBlocking(orgRef, data);
-    toast({
-      title: "Settings Saved",
-      description: "Your organization's settings have been updated.",
-    });
+  const fetchOrganization = async () => {
+    try {
+      const response = await fetch('/api/organization');
+      if (response.ok) {
+        const data = await response.json();
+        setOrgData(data);
+        form.reset(data);
+      }
+    } catch (error) {
+      console.error('Error fetching organization:', error);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
-  const isLoading = isUserLoading || isOrgDataLoading;
+  const onSubmit = async (data: OrgSettingsFormValues) => {
+    try {
+      const response = await fetch('/api/organization', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+      
+      if (response.ok) {
+        toast({
+          title: "Settings Saved",
+          description: "Your organization's settings have been updated.",
+        });
+      } else {
+        throw new Error('Failed to update settings');
+      }
+    } catch (error) {
+      console.error('Error updating organization:', error);
+      toast({
+        title: "Error",
+        description: "Failed to update settings",
+        variant: "destructive",
+      });
+    }
+  };
 
-  if (isLoading) {
+  if (isLoading || status === 'loading') {
     return (
       <div className="space-y-4">
         <div className="flex items-center gap-4">
@@ -130,12 +144,6 @@ export default function SettingsPage() {
       </div>
     );
   }
-
-  const smsBundles = [
-    { credits: 100, price: 5, icon: <MessageCircle className="h-8 w-8 text-muted-foreground" /> },
-    { credits: 500, price: 20, icon: <MessageCircle className="h-8 w-8 text-muted-foreground" /> },
-    { credits: 1000, price: 35, icon: <MessageCircle className="h-8 w-8 text-muted-foreground" /> },
-  ]
 
   return (
     <>
@@ -256,17 +264,15 @@ export default function SettingsPage() {
                               width="64"
                               data-ai-hint={companyLogo?.imageHint}
                             />
-                             <FormControl>
-                                <Card className="flex-1">
-                                  <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2">
-                                    <Upload className="h-8 w-8 text-muted-foreground" />
-                                    <p className="text-sm text-muted-foreground">
-                                      <span className="font-semibold text-primary cursor-pointer">Click to upload</span> or drag and drop
-                                    </p>
-                                    <p className="text-xs text-muted-foreground">SVG, PNG, JPG (max. 800x400px)</p>
-                                  </CardContent>
-                                </Card>
-                              </FormControl>
+                             <Card className="flex-1">
+                                <CardContent className="p-6 flex flex-col items-center justify-center text-center space-y-2">
+                                  <Upload className="h-8 w-8 text-muted-foreground" />
+                                  <p className="text-sm text-muted-foreground">
+                                    <span className="font-semibold text-primary cursor-pointer">Click to upload</span> or drag and drop
+                                  </p>
+                                  <p className="text-xs text-muted-foreground">SVG, PNG, JPG (max. 800x400px)</p>
+                                </CardContent>
+                              </Card>
                            </div>
                            <FormDescription>For now, please paste a URL to your logo.</FormDescription>
                            <FormControl>
@@ -368,34 +374,9 @@ The {{business_name}} Team"
                     <p className="text-sm text-muted-foreground">
                         You have <span className="font-bold">{orgData?.smsBalance || 0}</span> SMS credits remaining.
                     </p>
-                     <Dialog>
-                      <DialogTrigger asChild>
-                        <Button variant="outline" className="mt-2">Buy More Credits</Button>
-                      </DialogTrigger>
-                      <DialogContent className="sm:max-w-md">
-                        <DialogHeader>
-                          <DialogTitle>Buy SMS Credits</DialogTitle>
-                          <DialogDescription>
-                            Select a bundle and proceed to payment. Your balance will be updated instantly.
-                          </DialogDescription>
-                        </DialogHeader>
-                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
-                          {smsBundles.map((bundle) => (
-                            <Card key={bundle.credits} className="flex flex-col items-center justify-center p-4 text-center">
-                              <CardContent className="p-0 space-y-2">
-                                {bundle.icon}
-                                <p className="font-semibold">{bundle.credits} Credits</p>
-                                <p className="text-2xl font-bold">${bundle.price.toFixed(2)}</p>
-                                <Button className="w-full" disabled>Purchase</Button>
-                              </CardContent>
-                            </Card>
-                          ))}
-                        </div>
-                         <p className="text-xs text-muted-foreground text-center">
-                            Payment processing is coming soon.
-                        </p>
-                      </DialogContent>
-                    </Dialog>
+                    <Button variant="outline" className="mt-2" disabled>
+                      Buy More Credits (Coming Soon)
+                    </Button>
                   </div>
                 </CardContent>
               </Card>
