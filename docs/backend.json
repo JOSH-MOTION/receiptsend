@@ -88,6 +88,14 @@
         "smsContent": {
           "type": "string",
           "description": "The content of SMS messages sent by the organization."
+        },
+        "smsApiKey": {
+          "type": "string",
+          "description": "The organization's public API key for the SMS service."
+        },
+        "smsSenderId": {
+          "type": "string",
+          "description": "The organization's sender ID for the SMS service."
         }
       },
       "required": [

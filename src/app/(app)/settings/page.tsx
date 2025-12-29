@@ -52,6 +52,8 @@ const orgSettingsSchema = z.object({
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   smsContent: z.string().optional(),
+  smsApiKey: z.string().optional(),
+  smsSenderId: z.string().optional(),
 });
 
 type OrgSettingsFormValues = z.infer<typeof orgSettingsSchema>;
@@ -84,6 +86,8 @@ export default function SettingsPage() {
       emailSubject: "",
       emailBody: "",
       smsContent: "",
+      smsApiKey: "",
+      smsSenderId: "",
     }
   });
 
@@ -378,10 +382,42 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle>SMS Settings</CardTitle>
                   <CardDescription>
-                    Customize the SMS messages sent to your customers.
+                    Configure your SMS provider and customize messages.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="smsApiKey"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMS Public Key</FormLabel>
+                        <FormControl>
+                          <Input placeholder="Enter your SMS Public Key" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          Get this from your linksengineering.net dashboard.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="smsSenderId"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>SMS Sender Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="e.g., AcmeInc" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                          This is the name that appears on the recipient's phone.
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
                   <FormField
                     control={form.control}
                     name="smsContent"
@@ -411,3 +447,5 @@ export default function SettingsPage() {
     </>
   );
 }
+
+    

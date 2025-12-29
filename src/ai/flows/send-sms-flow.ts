@@ -2,15 +2,18 @@
 /**
  * @fileOverview A flow for sending SMS messages via the Quick SMS API.
  *
- * - sendSms - A function that sends an SMS to one or more recipients.
+ * - sendSms - A function that sends an SMS to one or more recipients for a specific organization.
  * - SendSmsInput - The input type for the sendSms function.
  * - SendSmsOutput - The return type for the sendSms function.
  */
 
 import { ai } from '@/ai/genkit';
 import { z } from 'genkit';
+import { getFirestore, doc, getDoc } from 'firebase/firestore';
+import { initializeFirebase } from '@/firebase';
 
 const SendSmsInputSchema = z.object({
+  organizationId: z.string().describe('The ID of the organization sending the SMS.'),
   message: z.string().describe('The content of the SMS message.'),
   recipients: z.array(z.string()).describe('A list of phone numbers to send the SMS to.'),
 });
@@ -33,11 +36,35 @@ const sendSmsFlow = ai.defineFlow(
     outputSchema: SendSmsOutputSchema,
   },
   async (input) => {
-    const apiKey = process.env.SMS_API_KEY;
-    const sender = process.env.SMS_API_SENDER;
+    const { firestore } = initializeFirebase();
+    const orgRef = doc(firestore, `organizations/${input.organizationId}`);
+    
+    let apiKey: string | undefined;
+    let sender: string | undefined;
+
+    try {
+      const orgDoc = await getDoc(orgRef);
+      if (!orgDoc.exists()) {
+        throw new Error(`Organization with ID ${input.organizationId} not found.`);
+      }
+      const orgData = orgDoc.data();
+      apiKey = orgData.smsApiKey;
+      sender = orgData.smsSenderId;
+
+    } catch (error: any) {
+        console.error("Failed to fetch organization credentials:", error);
+        return {
+            success: false,
+            message: `Could not retrieve SMS credentials for the organization. ${error.message}`
+        }
+    }
+
 
     if (!apiKey || !sender) {
-      throw new Error('SMS API key or sender not configured.');
+      return {
+        success: false,
+        message: 'SMS API Key or Sender Name is not configured for this organization in Settings > SMS.',
+      }
     }
 
     const numbers = input.recipients.join(',');
@@ -57,7 +84,6 @@ const sendSmsFlow = ai.defineFlow(
         };
       }
       
-      // The API seems to return a simple string, let's check for success indicators.
       // This part might need adjustment based on actual API success/error responses.
       if (textResponse.toLowerCase().includes('success')) {
          return {
@@ -79,3 +105,5 @@ const sendSmsFlow = ai.defineFlow(
     }
   }
 );
+
+    
