@@ -65,6 +65,7 @@ const orgSettingsSchema = z.object({
   emailBody: z.string().optional(),
   smsContent: z.string().optional(),
   smsBalance: z.number().optional(),
+  smsSenderId: z.string().max(11, 'Sender ID cannot be more than 11 characters').optional(),
 });
 
 type OrgSettingsFormValues = z.infer<typeof orgSettingsSchema>;
@@ -95,6 +96,7 @@ export default function SettingsPage() {
       emailBody: '',
       smsContent: '',
       smsBalance: 0,
+      smsSenderId: '',
     },
   });
 
@@ -122,6 +124,7 @@ export default function SettingsPage() {
           emailBody: data.emailBody ?? '',
           smsContent: data.smsContent ?? '',
           smsBalance: data.smsBalance ?? 0,
+          smsSenderId: data.smsSenderId ?? '',
         };
 
         form.reset(safeData);
@@ -421,6 +424,22 @@ The {{business_name}} Team`}
                 <CardDescription>Manage your SMS credits and default message.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <FormField
+                    control={form.control}
+                    name="smsSenderId"
+                    render={({ field }) => (
+                        <FormItem>
+                        <FormLabel>SMS Sender ID</FormLabel>
+                        <FormControl>
+                            <Input maxLength={11} placeholder="MyBusiness" {...field} />
+                        </FormControl>
+                        <FormDescription>
+                            Max 11 characters. This is the name your customers will see.
+                        </FormDescription>
+                        <FormMessage />
+                        </FormItem>
+                    )}
+                />
                 <FormField
                   control={form.control}
                   name="smsContent"

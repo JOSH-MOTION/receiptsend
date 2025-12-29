@@ -38,10 +38,12 @@ import {
   FormLabel,
   FormMessage,
 } from "@/components/ui/form";
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert";
 import Link from "next/link";
-import { PlusCircle, Rocket, Trash2 } from "lucide-react";
+import { AlertTriangle, PlusCircle, Rocket, Trash2 } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { useRouter } from "next/navigation";
+import { useEffect, useState } from "react";
 
 const receiptSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
@@ -156,6 +158,7 @@ export default function NewReceiptPage() {
   const { toast } = useToast();
   const router = useRouter();
   const receiptNumber = `RCPT-${Date.now()}`;
+  const [orgSettings, setOrgSettings] = useState<{ smsSenderId?: string } | null>(null);
 
   const form = useForm<ReceiptFormValues>({
     resolver: zodResolver(receiptSchema),
@@ -169,19 +172,45 @@ export default function NewReceiptPage() {
     },
   });
 
+  useEffect(() => {
+    async function fetchOrgSettings() {
+      try {
+        const response = await fetch('/api/organization');
+        if (response.ok) {
+          const data = await response.json();
+          setOrgSettings(data);
+        }
+      } catch (error) {
+        console.error("Failed to fetch organization settings", error);
+      }
+    }
+    fetchOrgSettings();
+  }, []);
+
   const { fields, append, remove } = useFieldArray({
     control: form.control,
     name: "items",
   });
 
   const watchedValues = form.watch();
+  const showSenderIdWarning = watchedValues.customerPhoneNumber && orgSettings && !orgSettings.smsSenderId;
+
 
   const onSubmit = async (data: ReceiptFormValues) => {
+    if (data.customerPhoneNumber && orgSettings && !orgSettings.smsSenderId) {
+        toast({
+            title: "SMS Sender ID Required",
+            description: "Please set your SMS Sender ID in the settings before sending receipts via SMS.",
+            variant: "destructive"
+        });
+        return;
+    }
+    
     try {
       const subtotal = data.items.reduce((acc, item) => acc + item.quantity * item.price, 0);
-      const discountAmount = (subtotal * data.discount) / 100;
+      const discountAmount = (subtotal * (data.discount ?? 0)) / 100;
       const subtotalAfterDiscount = subtotal - discountAmount;
-      const taxAmount = (subtotalAfterDiscount * data.tax) / 100;
+      const taxAmount = (subtotalAfterDiscount * (data.tax ?? 0)) / 100;
       const total = subtotalAfterDiscount + taxAmount;
 
       const receiptData = {
@@ -247,6 +276,20 @@ export default function NewReceiptPage() {
               <Button type="submit" size="sm">Send Receipt</Button>
             </div>
           </div>
+            
+          {showSenderIdWarning && (
+            <Alert variant="destructive">
+                <AlertTriangle className="h-4 w-4" />
+                <AlertTitle>SMS Sender ID is Missing</AlertTitle>
+                <AlertDescription>
+                    You have entered a phone number, but you haven't set an SMS Sender ID. Please
+                    <Link href="/settings" className="font-semibold underline underline-offset-2 mx-1">
+                     go to your settings
+                    </Link>
+                    to add one before sending this receipt.
+                </AlertDescription>
+            </Alert>
+          )}
 
           <div className="grid gap-4 md:grid-cols-[1fr_250px] lg:grid-cols-3 lg:gap-8">
             <div className="grid auto-rows-max items-start gap-4 lg:col-span-2 lg:gap-8">

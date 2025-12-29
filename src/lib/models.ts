@@ -28,7 +28,7 @@ const OrganizationSchema = new Schema<IOrganization>({
   smsContent: { type: String },
   smsBalance: { type: Number, default: 0 },
   smsApiKey: { type: String },
-  smsSenderId: { type: String },
+  smsSenderId: { type: String, trim: true, maxlength: 11 },
   createdAt: { type: Date, default: Date.now }
 });
 
