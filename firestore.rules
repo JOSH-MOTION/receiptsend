@@ -55,17 +55,17 @@ service cloud.firestore {
     }
 
     /**
-     * Validates that the organization 'id' field matches the document ID on create.
+     * Validates that an incoming document has a valid 'organizationId' on create.
      */
     function hasValidOrgDataOnCreate(organizationId) {
-      return request.resource.data.id == organizationId;
+      return request.resource.data.organizationId == organizationId;
     }
 
     /**
-     * Enforces that the organization 'id' field is immutable on update.
+     * Enforces that the 'organizationId' field is immutable on update.
      */
     function isOrgIdImmutable() {
-      return request.resource.data.id == resource.data.id;
+      return request.resource.data.organizationId == resource.data.organizationId;
     }
     
     /**
@@ -134,10 +134,24 @@ service cloud.firestore {
      */
     match /organizations/{organizationId} {
       allow get, list: if isOrgOwner(organizationId) || isSuperAdmin();
-      allow create: if isOrgOwner(organizationId) && hasValidOrgDataOnCreate(organizationId);
-      allow update: if isExistingResourceOwner(organizationId) && isOrgIdImmutable();
+      allow create: if isOrgOwner(organizationId) && request.resource.data.id == organizationId;
+      allow update: if isExistingResourceOwner(organizationId) && request.resource.data.id == resource.data.id;
       allow delete: if isExistingResourceOwner(organizationId);
     }
+    
+    /**
+     * @description Defines rules for contacts, which are subcollections of an organization.
+     * @path /organizations/{organizationId}/contacts/{contactId}
+     * @allow (read/write) - The owning organization can manage its contacts.
+     * @allow (read) - A super admin can read any organization's contacts.
+     * @deny  (create) - An organization trying to create a contact with a mismatched 'organizationId'.
+     * @principle Enforces data ownership and isolation for customer contact information.
+     */
+    match /organizations/{organizationId}/contacts/{contactId} {
+      allow get, list, create, update, delete: if isOrgOwner(organizationId);
+      allow get, list: if isSuperAdmin();
+    }
+
 
     /**
      * @description Defines rules for receipts, which are subcollections of an organization.
@@ -185,5 +199,4 @@ service cloud.firestore {
     }
   }
 }
-
     

@@ -238,6 +238,19 @@ export default function NewReceiptPage() {
     const receiptsColRef = collection(firestore, `organizations/${user.uid}/receipts`);
     addDocumentNonBlocking(receiptsColRef, receiptData);
 
+    // Save contact
+    const contactData = {
+      id: `${user.uid}-${data.customerEmail}`,
+      organizationId: user.uid,
+      name: data.customerName,
+      email: data.customerEmail,
+      phoneNumber: data.customerPhone,
+      createdAt: new Date().toISOString(),
+    }
+    const contactsColRef = collection(firestore, `organizations/${user.uid}/contacts`);
+    addDocumentNonBlocking(contactsColRef, contactData);
+
+
     toast({
       title: "Receipt Created",
       description: "The new receipt has been saved and is being sent.",
@@ -493,4 +506,6 @@ export default function NewReceiptPage() {
         </form>
       </Form>
     </>
+    
+
     

@@ -2,6 +2,7 @@
 
 import {
   Bell,
+  Contact,
   Home,
   Receipt,
   Rocket,
@@ -95,6 +96,9 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             <NavLink href="/receipts" icon={Receipt}>
               Receipts
             </NavLink>
+             <NavLink href="/contacts" icon={Contact}>
+              Contacts
+            </NavLink>
             <NavLink href="/settings" icon={Settings}>
               Settings
             </NavLink>
@@ -159,3 +163,5 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     </SidebarProvider>
   );
 }
+
+    
