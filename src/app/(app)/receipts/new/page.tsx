@@ -62,7 +62,7 @@ const receiptSchema = z.object({
   customerEmail: z.string().email("Invalid email address"),
   customerPhone: z.string().optional(),
   items: z.array(z.object({
-    name: z.string().min(1, "Item name is required"),
+    name: z.string().min(1, "Item or service name is required"),
     quantity: z.coerce.number().min(1, "Quantity must be at least 1"),
     price: z.coerce.number().min(0.01, "Price is required"),
   })).min(1, "At least one item is required"),
@@ -105,12 +105,12 @@ function ReceiptPreview({ receiptData, receiptNumber }: { receiptData: Partial<R
             </li>
           </ul>
           <Separator className="my-2" />
-          <div className="font-semibold mb-2">Items</div>
+          <div className="font-semibold mb-2">Items / Services</div>
           <ul className="grid gap-3">
             {items.map((item, index) => (
               <li key={index} className="flex items-center justify-between">
                 <span className="text-muted-foreground">
-                  {item.name || "Item"} ({item.quantity || 0} x ${item.price?.toFixed(2) || "0.00"})
+                  {item.name || "Item / Service"} ({item.quantity || 0} x ${item.price?.toFixed(2) || "0.00"})
                 </span>
                 <span>${((item.quantity || 0) * (item.price || 0)).toFixed(2)}</span>
               </li>
@@ -333,7 +333,7 @@ export default function NewReceiptPage() {
                   <Table>
                     <TableHeader>
                       <TableRow>
-                        <TableHead>Item</TableHead>
+                        <TableHead>Item / Service</TableHead>
                         <TableHead className="w-[100px]">Qty</TableHead>
                         <TableHead className="w-[100px] text-right">Price</TableHead>
                         <TableHead className="w-[100px] text-right">Total</TableHead>
@@ -350,7 +350,7 @@ export default function NewReceiptPage() {
                               render={({ field }) => (
                                 <FormItem>
                                   <FormControl>
-                                    <Input placeholder="Item name" {...field} />
+                                    <Input placeholder="e.g. Portrait Session" {...field} />
                                   </FormControl>
                                   <FormMessage/>
                                 </FormItem>
@@ -398,7 +398,7 @@ export default function NewReceiptPage() {
                     </TableBody>
                   </Table>
                   <Button type="button" variant="outline" size="sm" className="mt-4" onClick={() => append({ name: "", quantity: 1, price: 0 })}>
-                    <PlusCircle className="h-4 w-4 mr-2" /> Add Item
+                    <PlusCircle className="h-4 w-4 mr-2" /> Add Item / Service
                   </Button>
                 </CardContent>
               </Card>
@@ -493,7 +493,4 @@ export default function NewReceiptPage() {
         </form>
       </Form>
     </>
-  );
-}
-
     

@@ -89,9 +89,21 @@
         },
         "items": {
           "type": "array",
-          "description": "A list of items included in the receipt.",
+          "description": "A list of items or services included in the receipt.",
           "items": {
-            "type": "string"
+            "type": "object",
+            "properties": {
+              "name": {
+                "type": "string"
+              },
+              "quantity": {
+                "type": "number"
+              },
+              "price": {
+                "type": "number"
+              }
+            },
+            "required": ["name", "quantity", "price"]
           }
         },
         "discount": {
