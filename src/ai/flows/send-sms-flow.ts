@@ -12,7 +12,14 @@ import { z } from 'genkit';
 import { getFirestore, doc, getDoc } from 'firebase/firestore';
 import { initializeFirebase } from '@/firebase';
 
+// The ID of the organization that holds the master SMS credentials.
+// This should be your own organization/admin account ID.
+// For now, we will hardcode it. In the future, this could be an environment variable.
+const SMS_CREDENTIALS_ORGANIZATION_ID = process.env.SMS_CREDENTIAL_HOLDER_UID || '';
+
+
 const SendSmsInputSchema = z.object({
+  // We no longer need the organizationId to fetch credentials, but it's good for logging.
   organizationId: z.string().describe('The ID of the organization sending the SMS.'),
   message: z.string().describe('The content of the SMS message.'),
   recipients: z.array(z.string()).describe('A list of phone numbers to send the SMS to.'),
@@ -36,34 +43,43 @@ const sendSmsFlow = ai.defineFlow(
     outputSchema: SendSmsOutputSchema,
   },
   async (input) => {
+    if (!SMS_CREDENTIALS_ORGANIZATION_ID) {
+        const errorMessage = "SMS provider is not configured by the platform admin.";
+        console.error(errorMessage);
+        return {
+            success: false,
+            message: errorMessage
+        }
+    }
+      
     const { firestore } = initializeFirebase();
-    const orgRef = doc(firestore, `organizations/${input.organizationId}`);
+    // Fetch credentials from the central admin organization document
+    const credentialOrgRef = doc(firestore, `organizations/${SMS_CREDENTIALS_ORGANIZATION_ID}`);
     
     let apiKey: string | undefined;
     let sender: string | undefined;
 
     try {
-      const orgDoc = await getDoc(orgRef);
+      const orgDoc = await getDoc(credentialOrgRef);
       if (!orgDoc.exists()) {
-        throw new Error(`Organization with ID ${input.organizationId} not found.`);
+        throw new Error(`Credential-holding organization with ID ${SMS_CREDENTIALS_ORGANIZATION_ID} not found.`);
       }
       const orgData = orgDoc.data();
       apiKey = orgData.smsApiKey;
       sender = orgData.smsSenderId;
 
     } catch (error: any) {
-        console.error("Failed to fetch organization credentials:", error);
+        console.error("Failed to fetch platform SMS credentials:", error);
         return {
             success: false,
-            message: `Could not retrieve SMS credentials for the organization. ${error.message}`
+            message: `Could not retrieve platform SMS credentials. ${error.message}`
         }
     }
-
 
     if (!apiKey || !sender) {
       return {
         success: false,
-        message: 'SMS API Key or Sender Name is not configured for this organization in Settings > SMS.',
+        message: 'The platform SMS API Key or Sender Name is not configured. Please contact support.',
       }
     }
 
@@ -84,7 +100,6 @@ const sendSmsFlow = ai.defineFlow(
         };
       }
       
-      // This part might need adjustment based on actual API success/error responses.
       if (textResponse.toLowerCase().includes('success')) {
          return {
             success: true,
@@ -105,5 +120,3 @@ const sendSmsFlow = ai.defineFlow(
     }
   }
 );
-
-    

@@ -52,6 +52,7 @@ const orgSettingsSchema = z.object({
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   smsContent: z.string().optional(),
+  // We remove these from the user-facing form. They will only be on the admin's org document.
   smsApiKey: z.string().optional(),
   smsSenderId: z.string().optional(),
 });
@@ -86,14 +87,14 @@ export default function SettingsPage() {
       emailSubject: "",
       emailBody: "",
       smsContent: "",
-      smsApiKey: "",
-      smsSenderId: "",
     }
   });
 
   useEffect(() => {
     if (orgData) {
-      form.reset(orgData);
+      // We don't want to show the API key or sender ID even if they exist on the doc
+      const { smsApiKey, smsSenderId, ...formData } = orgData;
+      form.reset(formData);
     }
   }, [orgData, form]);
 
@@ -382,48 +383,16 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle>SMS Settings</CardTitle>
                   <CardDescription>
-                    Configure your SMS provider and customize messages.
+                    Customize the default SMS message sent to your customers.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
                   <FormField
                     control={form.control}
-                    name="smsApiKey"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SMS Public Key</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Enter your SMS Public Key" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          Get this from your linksengineering.net dashboard.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="smsSenderId"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>SMS Sender Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="e.g., AcmeInc" {...field} />
-                        </FormControl>
-                        <FormDescription>
-                          This is the name that appears on the recipient's phone.
-                        </FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
                     name="smsContent"
                     render={({ field }) => (
                       <FormItem>
-                        <FormLabel>SMS Content</FormLabel>
+                        <FormLabel>Default SMS Content</FormLabel>
                         <FormControl>
                           <Textarea
                             rows={5}
@@ -431,6 +400,9 @@ export default function SettingsPage() {
                             {...field}
                           />
                         </FormControl>
+                        <FormDescription>
+                            This message is sent when a receipt is created. You can customize it using placeholders.
+                        </FormDescription>
                         <FormMessage />
                       </FormItem>
                     )}
@@ -438,6 +410,16 @@ export default function SettingsPage() {
                    <p className="text-sm text-muted-foreground">
                     Available placeholders: {`{{customer_name}}`}, {`{{amount}}`}, {`{{receipt_number}}`}, {`{{business_name}}`}.
                   </p>
+                  <div className="border-t pt-4">
+                    <h4 className="text-lg font-semibold">SMS Credits</h4>
+                    <p className="text-sm text-muted-foreground">
+                        You have <span className="font-bold">0</span> SMS credits remaining.
+                    </p>
+                    <Button variant="outline" className="mt-2" disabled>Buy More Credits</Button>
+                    <p className="text-xs text-muted-foreground mt-2">
+                        This feature is coming soon.
+                    </p>
+                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -447,5 +429,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-    
