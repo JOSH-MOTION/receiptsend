@@ -109,11 +109,7 @@ service cloud.firestore {
      * @principle Protects critical authorization metadata from any client modification or inspection.
      */
     match /roles_admin/{userId} {
-      allow get: if false;
-      allow list: if false;
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow read, write: if false;
     }
 
     /**
@@ -124,11 +120,8 @@ service cloud.firestore {
      * @principle Segregates sensitive system data and protects it from client modification.
      */
     match /systemErrorLogs/{systemErrorLogId} {
-      allow get: if isSuperAdmin();
-      allow list: if isSuperAdmin();
-      allow create: if false;
-      allow update: if false;
-      allow delete: if false;
+      allow get, list: if isSuperAdmin();
+      allow write: if false;
     }
 
     /**
@@ -140,8 +133,7 @@ service cloud.firestore {
      * @principle Enforces a strict data ownership model, isolating tenant data.
      */
     match /organizations/{organizationId} {
-      allow get: if isOrgOwner(organizationId) || isSuperAdmin();
-      allow list: if isOrgOwner(organizationId) || isSuperAdmin();
+      allow get, list: if isOrgOwner(organizationId) || isSuperAdmin();
       allow create: if isOrgOwner(organizationId) && hasValidOrgDataOnCreate(organizationId);
       allow update: if isExistingResourceOwner(organizationId) && isOrgIdImmutable();
       allow delete: if isExistingResourceOwner(organizationId);
@@ -156,8 +148,7 @@ service cloud.firestore {
      * @principle Utilizes denormalized ownership data (`organizationId`) for efficient and secure access control.
      */
     match /organizations/{organizationId}/receipts/{receiptId} {
-      allow get: if isOrgOwner(organizationId) || isSuperAdmin();
-      allow list: if isOrgOwner(organizationId) || isSuperAdmin();
+      allow get, list: if isOrgOwner(organizationId) || isSuperAdmin();
       allow create: if isOrgOwner(organizationId) && hasValidReceiptDataOnCreate(organizationId);
       allow update: if isExistingResourceOwner(organizationId) && isReceiptOrgIdImmutable();
       allow delete: if isExistingResourceOwner(organizationId);
@@ -172,8 +163,7 @@ service cloud.firestore {
      * @principle Inherits ownership from the path, ensuring logs are bound to the correct organization.
      */
     match /organizations/{organizationId}/receipts/{receiptId}/emailLogs/{emailLogId} {
-      allow get: if isOrgOwner(organizationId) || isSuperAdmin();
-      allow list: if isOrgOwner(organizationId) || isSuperAdmin();
+      allow get, list: if isOrgOwner(organizationId) || isSuperAdmin();
       allow create: if isOrgOwner(organizationId) && hasValidLogDataOnCreate(receiptId);
       allow update: if isExistingResourceOwner(organizationId) && isLogReceiptIdImmutable();
       allow delete: if isExistingResourceOwner(organizationId);
@@ -188,11 +178,12 @@ service cloud.firestore {
      * @principle Inherits ownership from the path, ensuring logs are bound to the correct organization.
      */
     match /organizations/{organizationId}/receipts/{receiptId}/smsLogs/{smsLogId} {
-      allow get: if isOrgOwner(organizationId) || isSuperAdmin();
-      allow list: if isOrgOwner(organizationId) || isSuperAdmin();
+      allow get, list: if isOrgOwner(organizationId) || isSuperAdmin();
       allow create: if isOrgOwner(organizationId) && hasValidLogDataOnCreate(receiptId);
       allow update: if isExistingResourceOwner(organizationId) && isLogReceiptIdImmutable();
       allow delete: if isExistingResourceOwner(organizationId);
     }
   }
 }
+
+    
