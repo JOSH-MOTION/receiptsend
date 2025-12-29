@@ -26,6 +26,7 @@ import {
   Table,
   TableBody,
   TableCell,
+  TableHead,
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
@@ -269,6 +270,19 @@ export default function NewReceiptPage() {
                         <FormLabel>Email</FormLabel>
                         <FormControl>
                           <Input placeholder="john.doe@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="customerPhone"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+1 555 123 4567" {...field} />
                         </FormControl>
                         <FormMessage />
                       </FormItem>
