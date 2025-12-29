@@ -33,9 +33,9 @@ import {
 } from "@/components/ui/chart"
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts"
 import Link from "next/link"
-import React, { useMemo } from "react";
+import React, { useMemo, useState, useEffect } from "react";
 import { useFirestore, useUser, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, query, orderBy, limit, where } from "firebase/firestore";
+import { collection, query, orderBy, limit } from "firebase/firestore";
 import { format, subHours, subMonths } from "date-fns";
 
 const chartConfig = {
@@ -48,6 +48,11 @@ const chartConfig = {
 export default function Dashboard() {
   const { user } = useUser();
   const firestore = useFirestore();
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   const receiptsRef = useMemoFirebase(() => {
     if (!user) return null;
@@ -63,16 +68,15 @@ export default function Dashboard() {
   const { data: recentReceipts, isLoading: isLoadingRecent } = useCollection(recentReceiptsQuery);
 
   const stats = useMemo(() => {
-    if (!allReceipts) {
+    if (!allReceipts || !isClient) {
       return {
         totalRevenue: 0,
         receiptsSent: 0,
         newCustomers: 0,
         engagement: 0,
-        revenueLastMonth: 0,
-        receiptsLastMonth: 0,
-        customersLastMonth: 0,
-        engagementLastHour: 0,
+        revenuePercentage: 0,
+        receiptsPercentage: 0,
+        customersPercentage: 0,
       };
     }
 
@@ -122,9 +126,14 @@ export default function Dashboard() {
       receiptsPercentage,
       customersPercentage,
     };
-  }, [allReceipts]);
+  }, [allReceipts, isClient]);
 
   const chartData = useMemo(() => {
+    if (!isClient) {
+      // Return a placeholder structure for SSR
+      return Array.from({ length: 12 }, (_, i) => ({ month: `M${i+1}`, total: 0 }));
+    }
+    
     const months = Array.from({ length: 12 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - i);
@@ -141,7 +150,7 @@ export default function Dashboard() {
       });
     }
     return months;
-  }, [allReceipts]);
+  }, [allReceipts, isClient]);
 
 
   return (
@@ -257,7 +266,7 @@ export default function Dashboard() {
                         </Badge>
                       </TableCell>
                       <TableCell className="hidden md:table-cell lg:hidden xl:table-column">
-                        {format(new Date(receipt.createdAt), "yyyy-MM-dd")}
+                        {isClient ? format(new Date(receipt.createdAt), "yyyy-MM-dd") : "..."}
                       </TableCell>
                       <TableCell className="text-right">${receipt.totalAmount.toFixed(2)}</TableCell>
                     </TableRow>
@@ -277,7 +286,7 @@ export default function Dashboard() {
             <CardDescription>An overview of your receipts sent this year.</CardDescription>
           </CardHeader>
           <CardContent>
-             {isLoadingAllReceipts ? (
+             {(isLoadingAllReceipts || !isClient) ? (
               <div className="h-64 w-full flex items-center justify-center">Loading...</div>
             ) : (
             <ChartContainer config={chartConfig} className="h-64 w-full">
@@ -304,5 +313,3 @@ export default function Dashboard() {
     </>
   )
 }
-
-    
