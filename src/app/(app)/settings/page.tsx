@@ -25,7 +25,7 @@ import {
   TabsTrigger,
 } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { Upload } from "lucide-react";
+import { Upload, MessageCircle } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
@@ -37,7 +37,15 @@ import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog";
 
 const orgSettingsSchema = z.object({
   companyName: z.string().min(1, "Organization name is required"),
@@ -45,10 +53,6 @@ const orgSettingsSchema = z.object({
   phoneNumber: z.string().optional(),
   address: z.string().optional(),
   logoUrl: z.string().url().optional(),
-  primaryColor: z.string().optional(),
-  accentColor: z.string().optional(),
-  emailFromName: z.string().optional(),
-  emailReplyTo: z.string().email().optional(),
   emailSubject: z.string().optional(),
   emailBody: z.string().optional(),
   smsContent: z.string().optional(),
@@ -78,10 +82,6 @@ export default function SettingsPage() {
       phoneNumber: "",
       address: "",
       logoUrl: "",
-      primaryColor: "#2962FF",
-      accentColor: "#26A69A",
-      emailFromName: "",
-      emailReplyTo: "",
       emailSubject: "",
       emailBody: "",
       smsContent: "",
@@ -130,6 +130,12 @@ export default function SettingsPage() {
       </div>
     );
   }
+
+  const smsBundles = [
+    { credits: 100, price: 5, icon: <MessageCircle className="h-8 w-8 text-muted-foreground" /> },
+    { credits: 500, price: 20, icon: <MessageCircle className="h-8 w-8 text-muted-foreground" /> },
+    { credits: 1000, price: 35, icon: <MessageCircle className="h-8 w-8 text-muted-foreground" /> },
+  ]
 
   return (
     <>
@@ -270,35 +276,6 @@ export default function SettingsPage() {
                         </FormItem>
                       )}
                     />
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <FormField
-                      control={form.control}
-                      name="primaryColor"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Primary Color</FormLabel>
-                          <FormControl>
-                            <Input type="color" {...field} className="h-10 p-1" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                    <FormField
-                      control={form.control}
-                      name="accentColor"
-                      render={({ field }) => (
-                        <FormItem>
-                          <FormLabel>Accent Color</FormLabel>
-                          <FormControl>
-                            <Input type="color" {...field} className="h-10 p-1" />
-                          </FormControl>
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  </div>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -312,32 +289,6 @@ export default function SettingsPage() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
-                   <FormField
-                    control={form.control}
-                    name="emailFromName"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>From Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="Acme Inc." {...field} />
-                        </FormControl>
-                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="emailReplyTo"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Reply-To Email</FormLabel>
-                        <FormControl>
-                          <Input type="email" placeholder="support@acme.inc" {...field} />
-                        </FormControl>
-                         <FormMessage />
-                      </FormItem>
-                    )}
-                  />
                   <FormField
                     control={form.control}
                     name="emailSubject"
@@ -360,7 +311,12 @@ export default function SettingsPage() {
                         <FormControl>
                           <Textarea
                             rows={8}
-                            placeholder="Hi {{customer_name}},\n\nThank you for your purchase. Please find your receipt attached.\n\nBest,\nThe {{business_name}} Team"
+                            placeholder="Hi {{customer_name}},
+
+Thank you for your purchase. Please find your receipt attached.
+
+Best,
+The {{business_name}} Team"
                             {...field}
                           />
                         </FormControl>
@@ -380,7 +336,7 @@ export default function SettingsPage() {
                 <CardHeader>
                   <CardTitle>SMS Settings</CardTitle>
                   <CardDescription>
-                    Customize the default SMS message sent to your customers.
+                    Manage your SMS credits and default message.
                   </CardDescription>
                 </CardHeader>
                 <CardContent className="space-y-4">
@@ -412,10 +368,34 @@ export default function SettingsPage() {
                     <p className="text-sm text-muted-foreground">
                         You have <span className="font-bold">{orgData?.smsBalance || 0}</span> SMS credits remaining.
                     </p>
-                    <Button variant="outline" className="mt-2" disabled>Buy More Credits</Button>
-                    <p className="text-xs text-muted-foreground mt-2">
-                        This feature is coming soon.
-                    </p>
+                     <Dialog>
+                      <DialogTrigger asChild>
+                        <Button variant="outline" className="mt-2">Buy More Credits</Button>
+                      </DialogTrigger>
+                      <DialogContent className="sm:max-w-md">
+                        <DialogHeader>
+                          <DialogTitle>Buy SMS Credits</DialogTitle>
+                          <DialogDescription>
+                            Select a bundle and proceed to payment. Your balance will be updated instantly.
+                          </DialogDescription>
+                        </DialogHeader>
+                        <div className="grid grid-cols-1 md:grid-cols-3 gap-4 py-4">
+                          {smsBundles.map((bundle) => (
+                            <Card key={bundle.credits} className="flex flex-col items-center justify-center p-4 text-center">
+                              <CardContent className="p-0 space-y-2">
+                                {bundle.icon}
+                                <p className="font-semibold">{bundle.credits} Credits</p>
+                                <p className="text-2xl font-bold">${bundle.price.toFixed(2)}</p>
+                                <Button className="w-full" disabled>Purchase</Button>
+                              </CardContent>
+                            </Card>
+                          ))}
+                        </div>
+                         <p className="text-xs text-muted-foreground text-center">
+                            Payment processing is coming soon.
+                        </p>
+                      </DialogContent>
+                    </Dialog>
                   </div>
                 </CardContent>
               </Card>
@@ -426,6 +406,3 @@ export default function SettingsPage() {
     </>
   );
 }
-
-
-    
