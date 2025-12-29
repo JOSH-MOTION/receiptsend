@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState } from "react";
@@ -30,7 +31,6 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import { Textarea } from "@/components/ui/textarea";
 import { Separator } from "@/components/ui/separator";
 import {
   Form,
@@ -41,7 +41,7 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import Link from "next/link";
-import { ChevronLeft, PlusCircle, Rocket, Trash2, Wand2 } from "lucide-react";
+import { PlusCircle, Rocket, Trash2, Wand2 } from "lucide-react";
 import { enhanceReceiptLayout } from "@/ai/flows/receipt-layout-enhancement";
 import {
   Dialog,
@@ -53,6 +53,9 @@ import {
 } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
+import { useFirestore, useUser, addDocumentNonBlocking } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { useRouter } from "next/navigation";
 
 const receiptSchema = z.object({
   customerName: z.string().min(1, "Customer name is required"),
@@ -65,12 +68,11 @@ const receiptSchema = z.object({
   })).min(1, "At least one item is required"),
   discount: z.coerce.number().min(0).optional(),
   tax: z.coerce.number().min(0).optional(),
-  notes: z.string().optional(),
 });
 
 type ReceiptFormValues = z.infer<typeof receiptSchema>;
 
-function ReceiptPreview({ receiptData }: { receiptData: Partial<ReceiptFormValues> }) {
+function ReceiptPreview({ receiptData, receiptNumber }: { receiptData: Partial<ReceiptFormValues>, receiptNumber: string }) {
   const { items = [], discount = 0, tax = 0 } = receiptData;
   const subtotal = items.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0);
   const discountAmount = (subtotal * (discount || 0)) / 100;
@@ -86,7 +88,7 @@ function ReceiptPreview({ receiptData }: { receiptData: Partial<ReceiptFormValue
             <Rocket className="h-6 w-6" />
             <span>Acme Inc.</span>
           </CardTitle>
-          <CardDescription>Receipt Number: #0006</CardDescription>
+          <CardDescription>Receipt Number: {receiptNumber}</CardDescription>
         </div>
       </CardHeader>
       <CardContent className="p-6 text-sm">
@@ -155,6 +157,10 @@ export default function NewReceiptPage() {
   const [aiSuggestions, setAiSuggestions] = useState<{ enhancedLayout: string; suggestions: string[] } | null>(null);
   const [isAiDialogOpen, setIsAiDialogOpen] = useState(false);
   const { toast } = useToast();
+  const firestore = useFirestore();
+  const { user } = useUser();
+  const router = useRouter();
+  const receiptNumber = `RCPT-${Date.now()}`;
 
   const form = useForm<ReceiptFormValues>({
     resolver: zodResolver(receiptSchema),
@@ -165,7 +171,6 @@ export default function NewReceiptPage() {
       items: [{ name: "", quantity: 1, price: 0 }],
       discount: 0,
       tax: 10,
-      notes: "",
     },
   });
 
@@ -204,11 +209,41 @@ export default function NewReceiptPage() {
   };
 
   const onSubmit = (data: ReceiptFormValues) => {
-    console.log(data);
+    if (!user) {
+      toast({
+        title: "Authentication Error",
+        description: "You must be logged in to create a receipt.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    const { items = [], discount = 0, tax = 0 } = data;
+    const subtotal = items.reduce((acc, item) => acc + (item.quantity || 0) * (item.price || 0), 0);
+    const discountAmount = (subtotal * (discount || 0)) / 100;
+    const subtotalAfterDiscount = subtotal - discountAmount;
+    const taxAmount = (subtotalAfterDiscount * (tax || 0)) / 100;
+    const total = subtotalAfterDiscount + taxAmount;
+
+    const receiptData = {
+      ...data,
+      id: receiptNumber,
+      receiptNumber: receiptNumber,
+      organizationId: user.uid,
+      totalAmount: total,
+      createdAt: new Date().toISOString(),
+      pdfUrl: "" // This will be updated later
+    };
+
+    const receiptsColRef = collection(firestore, `organizations/${user.uid}/receipts`);
+    addDocumentNonBlocking(receiptsColRef, receiptData);
+
     toast({
       title: "Receipt Created",
-      description: "The new receipt has been saved as a draft.",
+      description: "The new receipt has been saved and is being sent.",
     });
+
+    router.push("/receipts");
   };
 
   return (
@@ -236,8 +271,8 @@ export default function NewReceiptPage() {
               </BreadcrumbList>
             </Breadcrumb>
             <div className="hidden items-center gap-2 md:ml-auto md:flex">
-              <Button variant="outline" size="sm">
-                Save as Draft
+              <Button variant="outline" size="sm" type="button" onClick={() => router.push('/receipts')}>
+                Cancel
               </Button>
               <Button type="submit" size="sm">Send Receipt</Button>
             </div>
@@ -407,7 +442,7 @@ export default function NewReceiptPage() {
                   <CardTitle>Receipt Preview</CardTitle>
                 </CardHeader>
                 <CardContent id="receipt-preview-content">
-                  <ReceiptPreview receiptData={watchedValues} />
+                  <ReceiptPreview receiptData={watchedValues} receiptNumber={receiptNumber} />
                 </CardContent>
                 <CardFooter>
                   <Dialog open={isAiDialogOpen} onOpenChange={setIsAiDialogOpen}>
@@ -450,8 +485,8 @@ export default function NewReceiptPage() {
             </div>
           </div>
           <div className="flex items-center justify-center gap-2 md:hidden">
-            <Button variant="outline" size="sm">
-              Save as Draft
+            <Button variant="outline" size="sm" type="button" onClick={() => router.push('/receipts')}>
+              Cancel
             </Button>
             <Button type="submit" size="sm">Send Receipt</Button>
           </div>
@@ -460,3 +495,5 @@ export default function NewReceiptPage() {
     </>
   );
 }
+
+    
