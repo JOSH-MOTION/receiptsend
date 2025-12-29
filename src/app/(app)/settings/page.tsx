@@ -1,3 +1,4 @@
+
 "use client";
 
 import {
@@ -35,7 +36,7 @@ import { useFirestore, useUser, useDoc, updateDocumentNonBlocking, useMemoFireba
 import { doc } from "firebase/firestore";
 import { useToast } from "@/hooks/use-toast";
 import { Skeleton } from "@/components/ui/skeleton";
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
+import { Form, FormControl, FormDescription, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useEffect } from "react";
 
 const orgSettingsSchema = z.object({
@@ -366,7 +367,7 @@ export default function SettingsPage() {
                     )}
                   />
                    <p className="text-sm text-muted-foreground">
-                    Available placeholders: `{{`{{customer_name}}`}}`, `{{`{{amount}}`}}`, `{{`{{receipt_number}}`}}`, `{{`{{business_name}}`}}`.
+                    Available placeholders: {`{{customer_name}}`}, {`{{amount}}`}, {`{{receipt_number}}`}, {`{{business_name}}`}.
                   </p>
                 </CardContent>
               </Card>
@@ -399,7 +400,7 @@ export default function SettingsPage() {
                     )}
                   />
                    <p className="text-sm text-muted-foreground">
-                    Available placeholders: `{{`{{customer_name}}`}}`, `{{`{{amount}}`}}`, `{{`{{receipt_number}}`}}`, `{{`{{business_name}}`}}`.
+                    Available placeholders: {`{{customer_name}}`}, {`{{amount}}`}, {`{{receipt_number}}`}, {`{{business_name}}`}.
                   </p>
                 </CardContent>
               </Card>
