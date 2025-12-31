@@ -5,10 +5,10 @@ import {
   Contact,
   Home,
   Receipt,
-  Rocket,
   Settings,
 } from "lucide-react";
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
@@ -79,11 +79,19 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <SidebarProvider>
-      <Sidebar variant="sidebar" collapsible="icon" className="border-r">
+      <Sidebar variant="sidebar" collapsible="icon" className="border-r border-green-100 dark:border-green-900">
         <SidebarHeader className="p-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <Rocket className="w-7 h-7 text-primary" />
-            <span className="text-lg font-semibold">ReceiptRocket</span>
+            <div className="relative w-7 h-7 flex-shrink-0">
+              <Image
+                src="/logo.png"
+                alt="SENDORA"
+                fill
+                className="object-contain"
+                priority
+              />
+            </div>
+            <span className="text-lg font-semibold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">SENDORA</span>
           </Link>
         </SidebarHeader>
         <SidebarContent>
@@ -105,7 +113,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <SidebarFooter className="p-2">
            <DropdownMenu>
               <DropdownMenuTrigger asChild>
-                <Button variant="ghost" className="w-full justify-start gap-2 px-2">
+                <Button variant="ghost" className="w-full justify-start gap-2 px-2 hover:bg-green-50 dark:hover:bg-green-900/20">
                   {isUserLoading ? (
                     <>
                       <Skeleton className="h-8 w-8 rounded-full" />
@@ -118,7 +126,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <>
                       <Avatar className="h-8 w-8">
                         <AvatarImage src={userAvatar?.imageUrl} alt={userAvatar?.description} data-ai-hint={userAvatar?.imageHint} />
-                        <AvatarFallback>
+                        <AvatarFallback className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
                           {session?.user?.email?.charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
@@ -150,7 +158,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
             {/* Breadcrumbs can be added here */}
           </div>
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="hover:bg-green-50 dark:hover:bg-green-900/20">
               <Bell className="h-5 w-5" />
               <span className="sr-only">Toggle notifications</span>
             </Button>

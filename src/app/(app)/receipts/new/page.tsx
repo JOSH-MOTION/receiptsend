@@ -78,7 +78,7 @@ function ReceiptPreview({ data, receiptNumber }: { data: Partial<ReceiptFormValu
         <div className="flex items-center gap-3">
           <Rocket className="h-8 w-8" />
           <div>
-            <h3 className="text-2xl font-bold">ReceiptRocket</h3>
+            <h3 className="text-2xl font-bold">SENDORA</h3>
             <p className="text-blue-100">Receipt #{receiptNumber}</p>
           </div>
         </div>

@@ -86,7 +86,7 @@ export async function GET(
     doc
       .fontSize(24)
       .fillColor('#2962FF')
-      .text(organization.companyName || 'ReceiptRocket', { align: 'left' });
+      .text(organization.companyName || 'SENDORA', { align: 'left' });
 
     doc
       .fontSize(10)

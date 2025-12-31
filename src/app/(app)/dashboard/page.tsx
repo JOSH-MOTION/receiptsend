@@ -63,7 +63,7 @@ interface Receipt {
 const chartConfig = {
   total: {
     label: "Revenue",
-    color: "hsl(262.1 83.3% 57.8%)", // purple-500 equivalent
+    color: "hsl(142 76% 36%)", // green-600
   },
 };
 
@@ -178,34 +178,34 @@ export default function Dashboard() {
   }, [allReceipts, isClient]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 dark:from-black dark:via-slate-900 dark:to-purple-950/30 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/20 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               Dashboard
             </h1>
             <p className="text-muted-foreground mt-2">Welcome back! Here's what's happening today.</p>
           </div>
-          <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-lg">
+          <Button asChild className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg">
             <Link href="/receipts/new">Create Receipt</Link>
           </Button>
         </div>
 
-        {/* Stats Grid - Glassmorphic Cards */}
+        {/* Stats Grid */}
         <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
           {[
-            { title: "Total Revenue", value: `$${stats.totalRevenue.toFixed(2)}`, change: stats.revenuePercentage, icon: DollarSign, color: "from-emerald-500 to-teal-600" },
-            { title: "Receipts Sent", value: stats.receiptsSent, change: stats.receiptsPercentage, icon: CreditCard, color: "from-blue-500 to-cyan-600" },
-            { title: "New Customers", value: stats.newCustomers, change: stats.customersPercentage, icon: Users, color: "from-purple-500 to-pink-600" },
-            { title: "Active Now", value: stats.engagement, change: null, icon: Activity, color: "from-orange-500 to-red-600", suffix: "last hour" },
+            { title: "Total Revenue", value: `$${stats.totalRevenue.toFixed(2)}`, change: stats.revenuePercentage, icon: DollarSign, color: "from-green-500 to-emerald-600" },
+            { title: "Receipts Sent", value: stats.receiptsSent, change: stats.receiptsPercentage, icon: CreditCard, color: "from-emerald-500 to-teal-600" },
+            { title: "New Customers", value: stats.newCustomers, change: stats.customersPercentage, icon: Users, color: "from-teal-500 to-cyan-600" },
+            { title: "Active Now", value: stats.engagement, change: null, icon: Activity, color: "from-green-500 to-lime-600", suffix: "last hour" },
           ].map((stat, i) => (
             <Card
               key={i}
-              className="relative overflow-hidden backdrop-blur-xl bg-white/70 dark:bg-black/40 border-white/20 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
+              className="relative overflow-hidden backdrop-blur-xl bg-white/80 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
             >
-              <div className="absolute inset-0 bg-gradient-to-br opacity-30" />
+              <div className="absolute inset-0 bg-gradient-to-br opacity-10" />
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-foreground/80">{stat.title}</CardTitle>
                 <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.color} text-white`}>
@@ -229,14 +229,14 @@ export default function Dashboard() {
         {/* Main Content */}
         <div className="grid gap-6 lg:grid-cols-7">
           {/* Recent Transactions */}
-          <Card className="lg:col-span-4 backdrop-blur-xl bg-white/60 dark:bg-black/30 border-white/10 shadow-2xl">
+          <Card className="lg:col-span-4 backdrop-blur-xl bg-white/70 dark:bg-black/30 border-green-200 dark:border-green-900 shadow-2xl">
             <CardHeader>
               <div className="flex items-center justify-between">
                 <div>
                   <CardTitle className="text-2xl">Recent Receipts</CardTitle>
                   <CardDescription>Latest customer transactions</CardDescription>
                 </div>
-                <Button variant="outline" asChild className="backdrop-blur-md">
+                <Button variant="outline" asChild className="backdrop-blur-md border-green-200 dark:border-green-800">
                   <Link href="/receipts" className="flex items-center gap-2">
                     View All <ArrowUpRight className="h-4 w-4" />
                   </Link>
@@ -246,7 +246,7 @@ export default function Dashboard() {
             <CardContent>
               <Table>
                 <TableHeader>
-                  <TableRow className="border-none">
+                  <TableRow className="border-none hover:bg-transparent">
                     <TableHead>Customer</TableHead>
                     <TableHead>Channel</TableHead>
                     <TableHead>Date</TableHead>
@@ -265,19 +265,19 @@ export default function Dashboard() {
                     ))
                   ) : recentReceipts.length > 0 ? (
                     recentReceipts.map((receipt) => (
-                      <TableRow key={receipt._id} className="hover:bg-white/40 dark:hover:bg-white/5 transition-colors">
+                      <TableRow key={receipt._id} className="hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors">
                         <TableCell>
                           <div className="font-medium">{receipt.customerName}</div>
                           <div className="text-sm text-muted-foreground">{receipt.customerEmail}</div>
                         </TableCell>
                         <TableCell>
                           <div className="flex gap-2">
-                            {receipt.customerEmail && <Badge variant="secondary"><Mail className="h-3 w-3 mr-1" />Email</Badge>}
-                            {receipt.customerPhoneNumber && <Badge variant="secondary"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>}
+                            {receipt.customerEmail && <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"><Mail className="h-3 w-3 mr-1" />Email</Badge>}
+                            {receipt.customerPhoneNumber && <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>}
                           </div>
                         </TableCell>
                         <TableCell>{isClient ? format(new Date(receipt.createdAt), "MMM d, yyyy") : "..."}</TableCell>
-                        <TableCell className="text-right font-semibold">${receipt.totalAmount.toFixed(2)}</TableCell>
+                        <TableCell className="text-right font-semibold text-green-600 dark:text-green-400">${receipt.totalAmount.toFixed(2)}</TableCell>
                       </TableRow>
                     ))
                   ) : (
@@ -292,56 +292,56 @@ export default function Dashboard() {
             </CardContent>
           </Card>
 
-        {/* Revenue Chart - FIXED */}
-<Card className="lg:col-span-3 backdrop-blur-xl bg-white/60 dark:bg-black/30 border-white/10 shadow-2xl">
-  <CardHeader>
-    <CardTitle className="text-2xl">Revenue Overview</CardTitle>
-    <CardDescription>Monthly receipt totals</CardDescription>
-  </CardHeader>
-  <CardContent>
-    {isLoading || !isClient ? (
-      <div className="h-80 flex items-center justify-center">
-        <div className="animate-pulse text-muted-foreground">Loading chart...</div>
-      </div>
-    ) : (
-      <div className="w-full overflow-x-auto"> {/* Key fix: horizontal scroll only if needed */}
-        <div className="min-w-[600px] w-full"> {/* Ensures minimum width but allows shrink */}
-          <ChartContainer config={chartConfig} className="h-80 w-full">
-            <BarChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
-              <XAxis
-                dataKey="month"
-                tickLine={false}
-                axisLine={false}
-                tick={{ fill: 'hsl(var(--muted-foreground))' }}
-                angle={-45}
-                textAnchor="end"
-                height={60}
-                interval={0} // Show all months even on small screens
-              />
-              <ChartTooltip
-                content={<ChartTooltipContent className="backdrop-blur-lg bg-white/90 dark:bg-black/80" />}
-                cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
-              />
-              <Bar
-                dataKey="total"
-                fill="url(#gradient)"
-                radius={[8, 8, 0, 0]}
-                className="drop-shadow-sm"
-              />
-              <defs>
-                <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="hsl(262.1 83.3% 57.8%)" stopOpacity={0.8} />
-                  <stop offset="100%" stopColor="hsl(262.1 83.3% 57.8%)" stopOpacity={0.3} />
-                </linearGradient>
-              </defs>
-            </BarChart>
-          </ChartContainer>
-        </div>
-      </div>
-    )}
-  </CardContent>
-</Card>
+          {/* Revenue Chart */}
+          <Card className="lg:col-span-3 backdrop-blur-xl bg-white/70 dark:bg-black/30 border-green-200 dark:border-green-900 shadow-2xl">
+            <CardHeader>
+              <CardTitle className="text-2xl">Revenue Overview</CardTitle>
+              <CardDescription>Monthly receipt totals</CardDescription>
+            </CardHeader>
+            <CardContent>
+              {isLoading || !isClient ? (
+                <div className="h-80 flex items-center justify-center">
+                  <div className="animate-pulse text-muted-foreground">Loading chart...</div>
+                </div>
+              ) : (
+                <div className="w-full overflow-x-auto">
+                  <div className="min-w-[600px] w-full">
+                    <ChartContainer config={chartConfig} className="h-80 w-full">
+                      <BarChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
+                        <XAxis
+                          dataKey="month"
+                          tickLine={false}
+                          axisLine={false}
+                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                          angle={-45}
+                          textAnchor="end"
+                          height={60}
+                          interval={0}
+                        />
+                        <ChartTooltip
+                          content={<ChartTooltipContent className="backdrop-blur-lg bg-white/90 dark:bg-black/80" />}
+                          cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
+                        />
+                        <Bar
+                          dataKey="total"
+                          fill="url(#gradient)"
+                          radius={[8, 8, 0, 0]}
+                          className="drop-shadow-sm"
+                        />
+                        <defs>
+                          <linearGradient id="gradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="hsl(142 76% 36%)" stopOpacity={0.8} />
+                            <stop offset="100%" stopColor="hsl(142 76% 36%)" stopOpacity={0.3} />
+                          </linearGradient>
+                        </defs>
+                      </BarChart>
+                    </ChartContainer>
+                  </div>
+                </div>
+              )}
+            </CardContent>
+          </Card>
         </div>
       </div>
     </div>

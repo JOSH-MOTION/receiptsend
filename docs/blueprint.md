@@ -1,4 +1,4 @@
-# **App Name**: ReceiptRocket
+# **App Name**: SENDORA
 
 ## Core Features:
 

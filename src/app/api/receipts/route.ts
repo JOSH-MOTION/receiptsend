@@ -99,7 +99,7 @@ export async function POST(req: NextRequest) {
         .replace('{{receipt_number}}', data.receiptNumber);
 
       const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-      const fromName = organization.companyName || 'ReceiptRocket';
+      const fromName = organization.companyName || 'SENDORA';
 
       try {
         const emailResult = await resend.emails.send({

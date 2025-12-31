@@ -1,14 +1,24 @@
-import { Rocket } from 'lucide-react';
+import Image from 'next/image';
 import Link from 'next/link';
 
 export default function AuthLayout({ children }: { children: React.ReactNode }) {
   return (
-    <div className="flex min-h-screen flex-col items-center justify-center bg-background p-4">
+    <div className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/20 p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 flex justify-center">
-          <Link href="/" className="flex items-center gap-2">
-            <Rocket className="w-8 h-8 text-primary" />
-            <span className="text-2xl font-bold">ReceiptRocket</span>
+          <Link href="/" className="flex items-center gap-2 group">
+            <div className="relative w-10 h-10">
+              <Image
+                src="/logo.png"
+                alt="SENDORA Logo"
+                fill
+                className="object-contain group-hover:scale-110 transition-transform"
+                priority
+              />
+            </div>
+            <span className="text-2xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              SENDORA
+            </span>
           </Link>
         </div>
         {children}
