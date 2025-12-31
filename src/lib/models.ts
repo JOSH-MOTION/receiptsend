@@ -1,8 +1,7 @@
-import mongoose, { Schema, Document, Model } from 'mongoose';
+import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 
 // Organization Schema
 export interface IOrganization extends Document {
-  _id: string;
   companyName: string;
   logoUrl?: string;
   email: string;
@@ -14,6 +13,9 @@ export interface IOrganization extends Document {
   smsBalance?: number;
   smsApiKey?: string;
   smsSenderId?: string;
+  thankYouMessage?: string;
+  totalSpent?: number;        // Track total money spent
+  totalPurchased?: number;    // Track total units purchased
   createdAt: Date;
 }
 
@@ -29,12 +31,14 @@ const OrganizationSchema = new Schema<IOrganization>({
   smsBalance: { type: Number, default: 0 },
   smsApiKey: { type: String },
   smsSenderId: { type: String, trim: true, maxlength: 11 },
+  thankYouMessage: { type: String, default: 'Thank you for your business!' },
+  totalSpent: { type: Number, default: 0 },
+  totalPurchased: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
 });
 
 // Contact Schema
 export interface IContact extends Document {
-  _id: string;
   organizationId: string;
   name: string;
   email: string;
@@ -52,7 +56,6 @@ const ContactSchema = new Schema<IContact>({
 
 // Receipt Schema
 export interface IReceipt extends Document {
-  _id: string;
   organizationId: string;
   receiptNumber: string;
   customerName: string;
@@ -67,6 +70,7 @@ export interface IReceipt extends Document {
   tax?: number;
   totalAmount: number;
   pdfUrl?: string;
+  thankYouMessage?: string;
   createdAt: Date;
 }
 
@@ -85,12 +89,12 @@ const ReceiptSchema = new Schema<IReceipt>({
   tax: { type: Number, default: 0 },
   totalAmount: { type: Number, required: true },
   pdfUrl: { type: String },
+  thankYouMessage: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 
 // Email Log Schema
 export interface IEmailLog extends Document {
-  _id: string;
   receiptId: string;
   recipient: string;
   status: string;
@@ -108,9 +112,11 @@ const EmailLogSchema = new Schema<IEmailLog>({
 
 // SMS Log Schema
 export interface ISmsLog extends Document {
-  _id: string;
   receiptId: string;
+  organizationId?: string;     // Added for admin tracking
   phoneNumber: string;
+  message?: string;            // Added to store message content
+  unitsUsed?: number;          // Added to track units
   status: string;
   apiResponse?: string;
   sentAt: Date;
@@ -118,7 +124,10 @@ export interface ISmsLog extends Document {
 
 const SmsLogSchema = new Schema<ISmsLog>({
   receiptId: { type: String, required: true, index: true },
+  organizationId: { type: String, index: true },
   phoneNumber: { type: String, required: true },
+  message: { type: String },
+  unitsUsed: { type: Number },
   status: { type: String, required: true },
   apiResponse: { type: String },
   sentAt: { type: Date, default: Date.now }
@@ -126,10 +135,10 @@ const SmsLogSchema = new Schema<ISmsLog>({
 
 // User Schema (for authentication)
 export interface IUser extends Document {
-  _id: string;
   email: string;
   password: string;
   organizationId: string;
+  role?: string;               // Added for super admin check
   createdAt: Date;
 }
 
@@ -137,12 +146,39 @@ const UserSchema = new Schema<IUser>({
   email: { type: String, required: true, unique: true },
   password: { type: String, required: true },
   organizationId: { type: String, required: true },
+  role: { type: String, default: 'user' }, // 'user' or 'superadmin'
+  createdAt: { type: Date, default: Date.now }
+});
+
+// Transaction Schema (NEW - for Paystack payments)
+export interface ITransaction extends Document {
+  organizationId: string;
+  organizationName: string;
+  reference: string;
+  bundleId: string;
+  bundleName: string;
+  amount: number;
+  units: number;
+  status: string;
+  paystackResponse?: string;
+  createdAt: Date;
+}
+
+const TransactionSchema = new Schema<ITransaction>({
+  organizationId: { type: String, required: true, index: true },
+  organizationName: { type: String, required: true },
+  reference: { type: String, required: true, unique: true },
+  bundleId: { type: String, required: true },
+  bundleName: { type: String, required: true },
+  amount: { type: Number, required: true },
+  units: { type: Number, required: true },
+  status: { type: String, required: true },
+  paystackResponse: { type: String },
   createdAt: { type: Date, default: Date.now }
 });
 
 // System Error Log Schema
 export interface ISystemErrorLog extends Document {
-  _id: string;
   timestamp: Date;
   message: string;
   stackTrace?: string;
@@ -163,4 +199,5 @@ export const Receipt: Model<IReceipt> = mongoose.models.Receipt || mongoose.mode
 export const EmailLog: Model<IEmailLog> = mongoose.models.EmailLog || mongoose.model<IEmailLog>('EmailLog', EmailLogSchema);
 export const SmsLog: Model<ISmsLog> = mongoose.models.SmsLog || mongoose.model<ISmsLog>('SmsLog', SmsLogSchema);
 export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
+export const Transaction: Model<ITransaction> = mongoose.models.Transaction || mongoose.model<ITransaction>('Transaction', TransactionSchema);
 export const SystemErrorLog: Model<ISystemErrorLog> = mongoose.models.SystemErrorLog || mongoose.model<ISystemErrorLog>('SystemErrorLog', SystemErrorLogSchema);
