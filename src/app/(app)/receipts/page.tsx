@@ -1,26 +1,13 @@
-'use client';
+"use client";
 
-import {
-  File,
-  PlusCircle,
-  MoreHorizontal,
-  Mail,
-  Smartphone,
-  Download,
-  Eye,
-  RefreshCw,
-} from "lucide-react";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { format } from "date-fns";
+import { Plus, Search, Filter, Download, Mail, Smartphone, Eye, Trash2, MoreVertical, FileText } from "lucide-react";
+import Link from "next/link";
 
-import { Badge } from "@/components/ui/badge";
-import {
-  Breadcrumb,
-  BreadcrumbItem,
-  BreadcrumbLink,
-  BreadcrumbList,
-  BreadcrumbPage,
-  BreadcrumbSeparator,
-} from "@/components/ui/breadcrumb";
 import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
 import {
   Card,
   CardContent,
@@ -29,13 +16,6 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuTrigger,
-} from "@/components/ui/dropdown-menu";
-import {
   Table,
   TableBody,
   TableCell,
@@ -43,12 +23,22 @@ import {
   TableHeader,
   TableRow,
 } from "@/components/ui/table";
-import Link from "next/link";
-import { useSession } from 'next-auth/react';
-import { useState, useEffect } from "react";
-import { format } from "date-fns";
-import { useToast } from "@/hooks/use-toast";
-import { useRouter } from "next/navigation";
+import { Badge } from "@/components/ui/badge";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface ReceiptItem {
   name: string;
@@ -73,10 +63,16 @@ interface Receipt {
 
 export default function ReceiptsPage() {
   const { data: session } = useSession();
-  const { toast } = useToast();
-  const router = useRouter();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
+  const [filteredReceipts, setFilteredReceipts] = useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [filterChannel, setFilterChannel] = useState("all");
+  const [isClient, setIsClient] = useState(false);
+
+  useEffect(() => {
+    setIsClient(true);
+  }, []);
 
   useEffect(() => {
     if (session) {
@@ -84,13 +80,17 @@ export default function ReceiptsPage() {
     }
   }, [session]);
 
+  useEffect(() => {
+    filterReceipts();
+  }, [receipts, searchQuery, filterChannel]);
+
   const fetchReceipts = async () => {
     try {
       const response = await fetch('/api/receipts');
       if (response.ok) {
         const data: Receipt[] = await response.json();
-        // Sort newest first
-        setReceipts(data.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()));
+        setReceipts(data);
+        setFilteredReceipts(data);
       }
     } catch (error) {
       console.error('Error fetching receipts:', error);
@@ -99,203 +99,227 @@ export default function ReceiptsPage() {
     }
   };
 
-  const handleExport = async () => {
-    try {
-      const response = await fetch('/api/receipts/export');
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `receipts-export-${new Date().toISOString().split('T')[0]}.csv`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        toast({ title: 'Success', description: 'Receipts exported successfully' });
-      }
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to export receipts', variant: 'destructive' });
+  const filterReceipts = () => {
+    let filtered = receipts;
+
+    // Search filter
+    if (searchQuery) {
+      filtered = filtered.filter(
+        (r) =>
+          r.customerName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.customerEmail.toLowerCase().includes(searchQuery.toLowerCase()) ||
+          r.receiptNumber.toLowerCase().includes(searchQuery.toLowerCase())
+      );
     }
-  };
 
-  const handleViewDetails = (receiptId: string) => {
-    router.push(`/receipts/${receiptId}`);
-  };
-
-  const handleDownloadPDF = async (receiptId: string, receiptNumber: string) => {
-    try {
-      const response = await fetch(`/api/receipts/${receiptId}/pdf`);
-      if (response.ok) {
-        const blob = await response.blob();
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `receipt-${receiptNumber}.pdf`;
-        a.click();
-        window.URL.revokeObjectURL(url);
-        toast({ title: 'Success', description: 'PDF downloaded' });
-      }
-    } catch (error) {
-      toast({ title: 'Error', description: 'Failed to download PDF', variant: 'destructive' });
+    // Channel filter
+    if (filterChannel === "email") {
+      filtered = filtered.filter((r) => r.customerEmail);
+    } else if (filterChannel === "sms") {
+      filtered = filtered.filter((r) => r.customerPhoneNumber);
     }
+
+    setFilteredReceipts(filtered);
   };
 
-  const handleResend = async (receiptId: string, type: 'email' | 'sms') => {
+  const handleDelete = async (id: string) => {
+    if (!confirm("Are you sure you want to delete this receipt?")) return;
+    
     try {
-      const response = await fetch(`/api/receipts/${receiptId}/resend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ type }),
+      const response = await fetch(`/api/receipts/${id}`, {
+        method: 'DELETE',
       });
-
+      
       if (response.ok) {
-        toast({ title: 'Success', description: `${type === 'email' ? 'Email' : 'SMS'} resent` });
+        setReceipts(receipts.filter((r) => r._id !== id));
       }
     } catch (error) {
-      toast({ title: 'Error', description: `Failed to resend ${type}`, variant: 'destructive' });
+      console.error('Error deleting receipt:', error);
     }
   };
+
+  const totalRevenue = filteredReceipts.reduce((sum, r) => sum + r.totalAmount, 0);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-purple-50 to-blue-50 dark:from-black dark:via-slate-900 dark:to-purple-950/30 p-4 md:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-8">
       <div className="max-w-7xl mx-auto space-y-8">
-
         {/* Header */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-6">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <Breadcrumb>
-              <BreadcrumbList>
-                <BreadcrumbItem>
-                  <BreadcrumbLink asChild>
-                    <Link href="/dashboard" className="text-foreground/80 hover:text-foreground">Dashboard</Link>
-                  </BreadcrumbLink>
-                </BreadcrumbItem>
-                <BreadcrumbSeparator />
-                <BreadcrumbItem>
-                  <BreadcrumbPage className="text-foreground font-medium">Receipts</BreadcrumbPage>
-                </BreadcrumbItem>
-              </BreadcrumbList>
-            </Breadcrumb>
-            <h1 className="text-4xl font-bold mt-4 bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-              All Receipts
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+              Receipts
             </h1>
-            <p className="text-muted-foreground mt-2">Manage and track all customer receipts in one place.</p>
+            <p className="text-muted-foreground mt-2">
+              Manage all your digital receipts in one place
+            </p>
           </div>
-
-          <div className="flex items-center gap-3">
-            <Button
-              variant="outline"
-              size="lg"
-              onClick={handleExport}
-              className="backdrop-blur-md border-white/20 hover:bg-white/30 dark:hover:bg-white/10"
-            >
-              <File className="h-5 w-5 mr-2" />
-              Export CSV
-            </Button>
-            <Button
-              size="lg"
-              asChild
-              className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 shadow-xl"
-            >
-              <Link href="/receipts/new" className="flex items-center gap-2">
-                <PlusCircle className="h-5 w-5" />
-                Create Receipt
-              </Link>
-            </Button>
-          </div>
+          <Button asChild className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg">
+            <Link href="/receipts/new" className="flex items-center gap-2">
+              <Plus className="h-5 w-5" />
+              New Receipt
+            </Link>
+          </Button>
         </div>
 
-        {/* Main Table Card */}
-        <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-white/20 shadow-2xl hover:shadow-3xl transition-all duration-500">
-          <CardHeader>
-            <div className="flex items-center justify-between">
-              <div>
-                <CardTitle className="text-2xl">Receipt History</CardTitle>
-                <CardDescription>
-                  {isLoading ? 'Loading receipts...' : `Showing ${receipts.length} receipt${receipts.length !== 1 ? 's' : ''}`}
-                </CardDescription>
+        {/* Stats Cards */}
+        <div className="grid gap-6 md:grid-cols-3">
+          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Receipts</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-green-600">{filteredReceipts.length}</div>
+              <p className="text-xs text-muted-foreground mt-2">
+                {receipts.length > filteredReceipts.length && `${receipts.length - filteredReceipts.length} filtered out`}
+              </p>
+            </CardContent>
+          </Card>
+
+          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-emerald-600">${totalRevenue.toFixed(2)}</div>
+              <p className="text-xs text-muted-foreground mt-2">From selected receipts</p>
+            </CardContent>
+          </Card>
+
+          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Receipt Value</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="text-3xl font-bold text-teal-600">
+                ${filteredReceipts.length > 0 ? (totalRevenue / filteredReceipts.length).toFixed(2) : "0.00"}
               </div>
-            </div>
+              <p className="text-xs text-muted-foreground mt-2">Per transaction</p>
+            </CardContent>
+          </Card>
+        </div>
+
+        {/* Filters */}
+        <Card className="backdrop-blur-xl bg-white/60 dark:bg-black/30 border-green-200 dark:border-green-900 shadow-2xl">
+          <CardHeader>
+            <CardTitle>All Receipts</CardTitle>
+            <CardDescription>Search and filter your receipt history</CardDescription>
           </CardHeader>
           <CardContent>
-            <div className="rounded-lg border border-white/20 overflow-hidden">
+            <div className="flex flex-col sm:flex-row gap-4 mb-6">
+              <div className="relative flex-1">
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Input
+                  placeholder="Search by customer, email, or receipt number..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="pl-10 border-green-200 dark:border-green-900 focus-visible:ring-green-500"
+                />
+              </div>
+              <Select value={filterChannel} onValueChange={setFilterChannel}>
+                <SelectTrigger className="w-full sm:w-48 border-green-200 dark:border-green-900">
+                  <Filter className="h-4 w-4 mr-2" />
+                  <SelectValue placeholder="Filter by channel" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Channels</SelectItem>
+                  <SelectItem value="email">Email Only</SelectItem>
+                  <SelectItem value="sms">SMS Only</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            {/* Receipts Table */}
+            <div className="rounded-lg border border-green-200 dark:border-green-900 overflow-hidden">
               <Table>
-                <TableHeader className="bg-gradient-to-r from-blue-500/10 to-purple-500/10">
-                  <TableRow>
-                    <TableHead className="font-semibold">Receipt ID</TableHead>
+                <TableHeader>
+                  <TableRow className="bg-green-50 dark:bg-green-950/30 hover:bg-green-50 dark:hover:bg-green-950/30 border-green-200 dark:border-green-900">
+                    <TableHead className="font-semibold">Receipt #</TableHead>
                     <TableHead className="font-semibold">Customer</TableHead>
-                    <TableHead className="font-semibold hidden sm:table-cell">Channels</TableHead>
-                    <TableHead className="font-semibold hidden md:table-cell">Date</TableHead>
+                    <TableHead className="font-semibold">Channel</TableHead>
+                    <TableHead className="font-semibold">Date</TableHead>
                     <TableHead className="font-semibold text-right">Amount</TableHead>
-                    <TableHead className="font-semibold text-center">Actions</TableHead>
+                    <TableHead className="font-semibold text-right">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
                   {isLoading ? (
-                    [...Array(6)].map((_, i) => (
-                      <TableRow key={i} className="animate-pulse">
-                        <TableCell><div className="h-4 bg-muted rounded w-32" /></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-40" /></TableCell>
-                        <TableCell className="hidden sm:table-cell"><div className="h-4 bg-muted rounded w-24" /></TableCell>
-                        <TableCell className="hidden md:table-cell"><div className="h-4 bg-muted rounded w-28" /></TableCell>
-                        <TableCell className="text-right"><div className="h-4 bg-muted rounded w-20 ml-auto" /></TableCell>
-                        <TableCell className="text-center"><div className="h-8 w-8 bg-muted rounded mx-auto" /></TableCell>
+                    [...Array(8)].map((_, i) => (
+                      <TableRow key={i} className="animate-pulse border-green-100 dark:border-green-900">
+                        <TableCell><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-24" /></TableCell>
+                        <TableCell><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-32" /></TableCell>
+                        <TableCell><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-20" /></TableCell>
+                        <TableCell><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-24" /></TableCell>
+                        <TableCell className="text-right"><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-16 ml-auto" /></TableCell>
+                        <TableCell className="text-right"><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-8 ml-auto" /></TableCell>
                       </TableRow>
                     ))
-                  ) : receipts.length > 0 ? (
-                    receipts.map((receipt) => (
+                  ) : filteredReceipts.length > 0 ? (
+                    filteredReceipts.map((receipt) => (
                       <TableRow
                         key={receipt._id}
-                        className="hover:bg-white/40 dark:hover:bg-white/5 transition-all duration-200 border-b border-white/10"
+                        className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors border-green-100 dark:border-green-900"
                       >
-                        <TableCell className="font-medium">
-                          <Link
-                            href={`/receipts/${receipt._id}`}
-                            className="text-primary hover:underline font-mono text-sm"
-                          >
-                            {receipt.receiptNumber}
-                          </Link>
+                        <TableCell className="font-mono font-medium text-green-700 dark:text-green-400">
+                          {receipt.receiptNumber}
                         </TableCell>
                         <TableCell>
                           <div className="font-medium">{receipt.customerName}</div>
                           <div className="text-sm text-muted-foreground">{receipt.customerEmail}</div>
                         </TableCell>
-                        <TableCell className="hidden sm:table-cell">
+                        <TableCell>
                           <div className="flex gap-2">
-                            <Badge variant="secondary" className="text-xs"><Mail className="h-3 w-3 mr-1" />Email</Badge>
+                            {receipt.customerEmail && (
+                              <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300">
+                                <Mail className="h-3 w-3 mr-1" />
+                                Email
+                              </Badge>
+                            )}
                             {receipt.customerPhoneNumber && (
-                              <Badge variant="secondary" className="text-xs"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>
+                              <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300">
+                                <Smartphone className="h-3 w-3 mr-1" />
+                                SMS
+                              </Badge>
                             )}
                           </div>
                         </TableCell>
-                        <TableCell className="hidden md:table-cell text-muted-foreground">
-                          {format(new Date(receipt.createdAt), "MMM d, yyyy")}
+                        <TableCell className="text-muted-foreground">
+                          {isClient ? format(new Date(receipt.createdAt), "MMM d, yyyy") : "..."}
                         </TableCell>
-                        <TableCell className="text-right font-semibold text-lg">
+                        <TableCell className="text-right font-semibold">
                           ${receipt.totalAmount.toFixed(2)}
                         </TableCell>
-                        <TableCell className="text-center">
+                        <TableCell className="text-right">
                           <DropdownMenu>
                             <DropdownMenuTrigger asChild>
-                              <Button variant="ghost" size="icon" className="hover:bg-white/30 dark:hover:bg-white/10 rounded-full">
-                                <MoreHorizontal className="h-5 w-5" />
+                              <Button variant="ghost" size="icon" className="hover:bg-green-100 dark:hover:bg-green-900/50">
+                                <MoreVertical className="h-4 w-4" />
                               </Button>
                             </DropdownMenuTrigger>
-                            <DropdownMenuContent align="end" className="backdrop-blur-xl bg-white/90 dark:bg-black/90 border-white/20">
+                            <DropdownMenuContent align="end">
                               <DropdownMenuLabel>Actions</DropdownMenuLabel>
-                              <DropdownMenuItem onClick={() => handleViewDetails(receipt._id)} className="cursor-pointer">
-                                <Eye className="h-4 w-4 mr-2" /> View Details
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem asChild>
+                                <Link href={`/receipts/${receipt._id}`} className="flex items-center gap-2">
+                                  <Eye className="h-4 w-4" />
+                                  View Details
+                                </Link>
                               </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleDownloadPDF(receipt._id, receipt.receiptNumber)} className="cursor-pointer">
-                                <Download className="h-4 w-4 mr-2" /> Download PDF
-                              </DropdownMenuItem>
-                              <DropdownMenuItem onClick={() => handleResend(receipt._id, 'email')} className="cursor-pointer">
-                                <RefreshCw className="h-4 w-4 mr-2" /> Resend Email
-                              </DropdownMenuItem>
-                              {receipt.customerPhoneNumber && (
-                                <DropdownMenuItem onClick={() => handleResend(receipt._id, 'sms')} className="cursor-pointer">
-                                  <RefreshCw className="h-4 w-4 mr-2" /> Resend SMS
+                              {receipt.pdfUrl && (
+                                <DropdownMenuItem asChild>
+                                  <a href={receipt.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
+                                    <Download className="h-4 w-4" />
+                                    Download PDF
+                                  </a>
                                 </DropdownMenuItem>
                               )}
+                              <DropdownMenuSeparator />
+                              <DropdownMenuItem
+                                onClick={() => handleDelete(receipt._id)}
+                                className="text-red-600 focus:text-red-600"
+                              >
+                                <Trash2 className="h-4 w-4 mr-2" />
+                                Delete
+                              </DropdownMenuItem>
                             </DropdownMenuContent>
                           </DropdownMenu>
                         </TableCell>
@@ -303,13 +327,27 @@ export default function ReceiptsPage() {
                     ))
                   ) : (
                     <TableRow>
-                      <TableCell colSpan={6} className="text-center py-12 text-muted-foreground">
-                        <div className="space-y-4">
-                          <div className="text-2xl">No receipts yet</div>
-                          <p>Create your first digital receipt to get started.</p>
-                          <Button asChild className="bg-gradient-to-r from-blue-600 to-purple-600">
-                            <Link href="/receipts/new">Create First Receipt</Link>
-                          </Button>
+                      <TableCell colSpan={6} className="text-center py-12">
+                        <div className="flex flex-col items-center gap-3">
+                          <div className="p-4 rounded-full bg-green-100 dark:bg-green-900/30">
+                            <FileText className="h-8 w-8 text-green-600" />
+                          </div>
+                          <div>
+                            <p className="text-lg font-semibold">No receipts found</p>
+                            <p className="text-sm text-muted-foreground mt-1">
+                              {searchQuery || filterChannel !== "all"
+                                ? "Try adjusting your filters"
+                                : "Create your first receipt to get started"}
+                            </p>
+                          </div>
+                          {!searchQuery && filterChannel === "all" && (
+                            <Button asChild className="mt-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                              <Link href="/receipts/new">
+                                <Plus className="h-4 w-4 mr-2" />
+                                Create Receipt
+                              </Link>
+                            </Button>
+                          )}
                         </div>
                       </TableCell>
                     </TableRow>
