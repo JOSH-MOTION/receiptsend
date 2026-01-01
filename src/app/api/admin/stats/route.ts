@@ -1,81 +1,112 @@
-// app/api/admin/stats/route.ts
-import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import { Organization, SmsLog } from '@/lib/models';
+import { NextResponse } from 'next/server';
+import { isSuperAdmin } from '@/lib/super-admin';
 import connectDB from '@/lib/mongodb';
-import { quickSMSService } from '@/lib/quicksms';
+import { Organization, Receipt, Contact, User, Transaction } from '@/lib/models';
+import { startOfMonth, endOfMonth, subMonths, format } from 'date-fns';
 
-// Middleware to check if user is super admin
-async function isSuper Admin() {
-  const session = await getServerSession();
-  // Add your super admin email check here
-  const superAdminEmails = ['admin@yourcompany.com', 'your@email.com'];
-  return session && superAdminEmails.includes(session.user?.email || '');
-}
-
-export async function GET(request: NextRequest) {
+export async function GET() {
   try {
-    // Check super admin access
-    const isSuperAdmin = await isSuperAdmin();
-    if (!isSuperAdmin) {
+    // Check if user is super admin
+    const isAdmin = await isSuperAdmin();
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
+    // Connect to database
     await connectDB();
 
-    // Get all organizations
-    const organizations = await Organization.find({});
-    
-    // Calculate total revenue (sum of all purchases)
-    const totalRevenue = organizations.reduce((sum, org) => {
-      return sum + (org.totalSpent || 0);
-    }, 0);
+    // Get all organizations with receipt and contact counts
+    const organizations = await Organization.find({})
+      .select('id companyName email smsBalance createdAt')
+      .lean();
 
-    // Calculate total credits issued
-    const totalCreditsIssued = organizations.reduce((sum, org) => {
-      return sum + (org.totalPurchased || 0);
-    }, 0);
+    // Get counts for each organization
+    const orgsWithCounts = await Promise.all(
+      organizations.map(async (org) => {
+        const receiptsCount = await Receipt.countDocuments({ organizationId: org._id.toString() });
+        const contactsCount = await Contact.countDocuments({ organizationId: org._id.toString() });
+        
+        return {
+          id: org._id.toString(),
+          companyName: org.companyName,
+          email: org.email,
+          smsBalance: org.smsBalance || 0,
+          createdAt: org.createdAt,
+          _count: {
+            receipts: receiptsCount,
+            contacts: contactsCount,
+          },
+        };
+      })
+    );
 
-    // Get SMS logs
-    const totalSMSSent = await SmsLog.countDocuments({ status: 'sent' });
-    
-    // Today's stats
-    const todayStart = new Date();
-    todayStart.setHours(0, 0, 0, 0);
-    
-    const todaySMS = await SmsLog.countDocuments({
-      status: 'sent',
-      sentAt: { $gte: todayStart }
-    });
+    // Get total stats
+    const totalOrgs = organizations.length;
+    const totalReceipts = await Receipt.countDocuments();
+    const totalContacts = await Contact.countDocuments();
+    const totalSMSBalance = organizations.reduce(
+      (sum: number, org: any) => sum + (org.smsBalance || 0),
+      0
+    );
 
-    // Get QuickSMS balance
-    const balanceResponse = await quickSMSService.getBalance();
-    const quickSMSBalance = balanceResponse.balance;
+    // Get monthly revenue (last 6 months)
+    const monthlyRevenue = [];
+    for (let i = 5; i >= 0; i--) {
+      const date = subMonths(new Date(), i);
+      const start = startOfMonth(date);
+      const end = endOfMonth(date);
 
-    // Active organizations (have balance > 0)
-    const activeOrganizations = organizations.filter(org => 
-      (org.smsBalance || 0) > 0
-    ).length;
+      const receipts = await Receipt.find({
+        createdAt: {
+          $gte: start,
+          $lte: end,
+        },
+      }).select('totalAmount');
 
-    // Monthly revenue
-    const monthStart = new Date();
-    monthStart.setDate(1);
-    monthStart.setHours(0, 0, 0, 0);
+      const revenue = receipts.reduce(
+        (sum: number, r: any) => sum + (r.totalAmount || 0),
+        0
+      );
+
+      monthlyRevenue.push({
+        month: format(date, 'MMM yyyy'),
+        revenue: revenue,
+      });
+    }
+
+    // Get SMS stats from transactions
+    const transactions = await Transaction.find({ status: 'success' }).lean();
+    const totalSMSPurchased = transactions.reduce(
+      (sum: number, t: any) => sum + (t.units || 0),
+      0
+    );
+    const totalSpent = transactions.reduce(
+      (sum: number, t: any) => sum + (t.amount || 0),
+      0
+    );
+
+    const smsStats = {
+      totalPurchased: totalSMSPurchased,
+      totalSpent: totalSpent,
+      currentBalance: totalSMSBalance,
+    };
 
     return NextResponse.json({
-      totalRevenue,
-      totalOrganizations: organizations.length,
-      totalCreditsIssued,
-      totalSMSSent,
-      quickSMSBalance,
-      todayRevenue: 0, // Calculate from payment logs
-      todaySMS,
-      monthlyRevenue: 0, // Calculate from payment logs
-      activeOrganizations,
+      organizations: orgsWithCounts,
+      stats: {
+        totalOrgs,
+        totalReceipts,
+        totalContacts,
+        totalSMSBalance,
+        monthlyRevenue,
+        smsStats,
+      },
     });
-  } catch (error: any) {
+  } catch (error) {
     console.error('Admin stats error:', error);
-    return NextResponse.json({ error: error.message }, { status: 500 });
+    return NextResponse.json(
+      { error: 'Failed to fetch admin stats' },
+      { status: 500 }
+    );
   }
 }
-
