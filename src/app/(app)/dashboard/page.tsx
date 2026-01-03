@@ -178,23 +178,23 @@ export default function Dashboard() {
   }, [allReceipts, isClient]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/20 p-4 md:p-8">
-      <div className="max-w-7xl mx-auto space-y-8">
+    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/20 p-4 md:p-6 lg:p-8">
+      <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               Dashboard
             </h1>
-            <p className="text-muted-foreground mt-2">Welcome back! Here's what's happening today.</p>
+            <p className="text-muted-foreground mt-2 text-sm sm:text-base">Welcome back! Here's what's happening today.</p>
           </div>
-          <Button asChild className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg">
+          <Button asChild className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg">
             <Link href="/receipts/new">Create Receipt</Link>
           </Button>
         </div>
 
-        {/* Stats Grid */}
-        <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-4">
+        {/* Stats Grid - Responsive */}
+        <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {[
             { title: "Total Revenue", value: `$${stats.totalRevenue.toFixed(2)}`, change: stats.revenuePercentage, icon: DollarSign, color: "from-green-500 to-emerald-600" },
             { title: "Receipts Sent", value: stats.receiptsSent, change: stats.receiptsPercentage, icon: CreditCard, color: "from-emerald-500 to-teal-600" },
@@ -209,14 +209,14 @@ export default function Dashboard() {
               <CardHeader className="flex flex-row items-center justify-between pb-2">
                 <CardTitle className="text-sm font-medium text-foreground/80">{stat.title}</CardTitle>
                 <div className={`p-2 rounded-lg bg-gradient-to-br ${stat.color} text-white`}>
-                  <stat.icon className="h-5 w-5" />
+                  <stat.icon className="h-4 w-4 sm:h-5 sm:w-5" />
                 </div>
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold">{stat.value}</div>
+                <div className="text-2xl sm:text-3xl font-bold">{stat.value}</div>
                 {stat.change !== null && (
-                  <p className={`text-sm flex items-center gap-1 mt-2 ${stat.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
-                    <TrendingUp className={`h-4 w-4 ${stat.change >= 0 ? '' : 'rotate-180'}`} />
+                  <p className={`text-xs sm:text-sm flex items-center gap-1 mt-2 ${stat.change >= 0 ? 'text-green-600' : 'text-red-600'}`}>
+                    <TrendingUp className={`h-3 w-3 sm:h-4 sm:w-4 ${stat.change >= 0 ? '' : 'rotate-180'}`} />
                     {stat.change >= 0 ? '+' : ''}{stat.change.toFixed(1)}% from last month
                   </p>
                 )}
@@ -226,94 +226,96 @@ export default function Dashboard() {
           ))}
         </div>
 
-        {/* Main Content */}
-        <div className="grid gap-6 lg:grid-cols-7">
+        {/* Main Content - Responsive Grid */}
+        <div className="grid gap-6 grid-cols-1 lg:grid-cols-7">
           {/* Recent Transactions */}
           <Card className="lg:col-span-4 backdrop-blur-xl bg-white/70 dark:bg-black/30 border-green-200 dark:border-green-900 shadow-2xl">
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
-                  <CardTitle className="text-2xl">Recent Receipts</CardTitle>
-                  <CardDescription>Latest customer transactions</CardDescription>
+                  <CardTitle className="text-xl sm:text-2xl">Recent Receipts</CardTitle>
+                  <CardDescription className="text-sm">Latest customer transactions</CardDescription>
                 </div>
-                <Button variant="outline" asChild className="backdrop-blur-md border-green-200 dark:border-green-800">
+                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto backdrop-blur-md border-green-200 dark:border-green-800">
                   <Link href="/receipts" className="flex items-center gap-2">
                     View All <ArrowUpRight className="h-4 w-4" />
                   </Link>
                 </Button>
               </div>
             </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow className="border-none hover:bg-transparent">
-                    <TableHead>Customer</TableHead>
-                    <TableHead>Channel</TableHead>
-                    <TableHead>Date</TableHead>
-                    <TableHead className="text-right">Amount</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {isLoading ? (
-                    [...Array(5)].map((_, i) => (
-                      <TableRow key={i} className="animate-pulse">
-                        <TableCell><div className="h-4 bg-muted rounded w-32" /></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-20" /></TableCell>
-                        <TableCell><div className="h-4 bg-muted rounded w-24" /></TableCell>
-                        <TableCell className="text-right"><div className="h-4 bg-muted rounded w-16 ml-auto" /></TableCell>
-                      </TableRow>
-                    ))
-                  ) : recentReceipts.length > 0 ? (
-                    recentReceipts.map((receipt) => (
-                      <TableRow key={receipt._id} className="hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors">
-                        <TableCell>
-                          <div className="font-medium">{receipt.customerName}</div>
-                          <div className="text-sm text-muted-foreground">{receipt.customerEmail}</div>
-                        </TableCell>
-                        <TableCell>
-                          <div className="flex gap-2">
-                            {receipt.customerEmail && <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300"><Mail className="h-3 w-3 mr-1" />Email</Badge>}
-                            {receipt.customerPhoneNumber && <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>}
-                          </div>
-                        </TableCell>
-                        <TableCell>{isClient ? format(new Date(receipt.createdAt), "MMM d, yyyy") : "..."}</TableCell>
-                        <TableCell className="text-right font-semibold text-green-600 dark:text-green-400">${receipt.totalAmount.toFixed(2)}</TableCell>
-                      </TableRow>
-                    ))
-                  ) : (
-                    <TableRow>
-                      <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
-                        No receipts yet. Create your first one!
-                      </TableCell>
+            <CardContent className="overflow-x-auto">
+              <div className="min-w-[600px]">
+                <Table>
+                  <TableHeader>
+                    <TableRow className="border-none hover:bg-transparent">
+                      <TableHead>Customer</TableHead>
+                      <TableHead className="hidden sm:table-cell">Channel</TableHead>
+                      <TableHead>Date</TableHead>
+                      <TableHead className="text-right">Amount</TableHead>
                     </TableRow>
-                  )}
-                </TableBody>
-              </Table>
+                  </TableHeader>
+                  <TableBody>
+                    {isLoading ? (
+                      [...Array(5)].map((_, i) => (
+                        <TableRow key={i} className="animate-pulse">
+                          <TableCell><div className="h-4 bg-muted rounded w-32" /></TableCell>
+                          <TableCell className="hidden sm:table-cell"><div className="h-4 bg-muted rounded w-20" /></TableCell>
+                          <TableCell><div className="h-4 bg-muted rounded w-24" /></TableCell>
+                          <TableCell className="text-right"><div className="h-4 bg-muted rounded w-16 ml-auto" /></TableCell>
+                        </TableRow>
+                      ))
+                    ) : recentReceipts.length > 0 ? (
+                      recentReceipts.map((receipt) => (
+                        <TableRow key={receipt._id} className="hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors">
+                          <TableCell>
+                            <div className="font-medium text-sm">{receipt.customerName}</div>
+                            <div className="text-xs text-muted-foreground hidden sm:block">{receipt.customerEmail}</div>
+                          </TableCell>
+                          <TableCell className="hidden sm:table-cell">
+                            <div className="flex gap-2 flex-wrap">
+                              {receipt.customerEmail && <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs"><Mail className="h-3 w-3 mr-1" />Email</Badge>}
+                              {receipt.customerPhoneNumber && <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-xs"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>}
+                            </div>
+                          </TableCell>
+                          <TableCell className="text-sm">{isClient ? format(new Date(receipt.createdAt), "MMM d, yyyy") : "..."}</TableCell>
+                          <TableCell className="text-right font-semibold text-green-600 dark:text-green-400 text-sm">${receipt.totalAmount.toFixed(2)}</TableCell>
+                        </TableRow>
+                      ))
+                    ) : (
+                      <TableRow>
+                        <TableCell colSpan={4} className="text-center py-8 text-muted-foreground">
+                          No receipts yet. Create your first one!
+                        </TableCell>
+                      </TableRow>
+                    )}
+                  </TableBody>
+                </Table>
+              </div>
             </CardContent>
           </Card>
 
-          {/* Revenue Chart */}
+          {/* Revenue Chart - Responsive */}
           <Card className="lg:col-span-3 backdrop-blur-xl bg-white/70 dark:bg-black/30 border-green-200 dark:border-green-900 shadow-2xl">
             <CardHeader>
-              <CardTitle className="text-2xl">Revenue Overview</CardTitle>
-              <CardDescription>Monthly receipt totals</CardDescription>
+              <CardTitle className="text-xl sm:text-2xl">Revenue Overview</CardTitle>
+              <CardDescription className="text-sm">Monthly receipt totals</CardDescription>
             </CardHeader>
             <CardContent>
               {isLoading || !isClient ? (
-                <div className="h-80 flex items-center justify-center">
-                  <div className="animate-pulse text-muted-foreground">Loading chart...</div>
+                <div className="h-64 sm:h-80 flex items-center justify-center">
+                  <div className="animate-pulse text-muted-foreground text-sm">Loading chart...</div>
                 </div>
               ) : (
                 <div className="w-full overflow-x-auto">
-                  <div className="min-w-[600px] w-full">
-                    <ChartContainer config={chartConfig} className="h-80 w-full">
-                      <BarChart data={chartData} margin={{ top: 20, right: 20, left: 20, bottom: 20 }}>
+                  <div className="min-w-[300px] sm:min-w-[400px] w-full">
+                    <ChartContainer config={chartConfig} className="h-64 sm:h-80 w-full">
+                      <BarChart data={chartData} margin={{ top: 20, right: 10, left: 10, bottom: 60 }}>
                         <CartesianGrid strokeDasharray="3 3" stroke="hsl(var(--border))" />
                         <XAxis
                           dataKey="month"
                           tickLine={false}
                           axisLine={false}
-                          tick={{ fill: 'hsl(var(--muted-foreground))' }}
+                          tick={{ fill: 'hsl(var(--muted-foreground))', fontSize: 12 }}
                           angle={-45}
                           textAnchor="end"
                           height={60}
