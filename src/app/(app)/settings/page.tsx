@@ -1,9 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { useRouter } from "next/navigation";
-import { ArrowLeft, Plus, Trash2, Send, Mail, Smartphone } from "lucide-react";
-import Link from "next/link";
+import { useState, useEffect } from "react";
+import { useSession } from "next-auth/react";
+import { Building2, Mail, Palette, Smartphone, CreditCard, Save, Check } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -16,400 +15,378 @@ import {
   CardHeader,
   CardTitle,
 } from "@/components/ui/card";
-import { Checkbox } from "@/components/ui/checkbox";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Badge } from "@/components/ui/badge";
 
-interface ReceiptItem {
+interface Organization {
   name: string;
-  quantity: number;
-  price: number;
+  email: string;
+  phone: string;
+  address: string;
+  logo?: string;
+  primaryColor: string;
+  secondaryColor: string;
+  smsCredits: number;
 }
 
-export default function NewReceiptPage() {
-  const router = useRouter();
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [formData, setFormData] = useState({
-    customerName: "",
-    customerEmail: "",
-    customerPhoneNumber: "",
-    items: [{ name: "", quantity: 1, price: 0 }] as ReceiptItem[],
-    discount: 0,
-    tax: 0,
-    notes: "",
+export default function SettingsPage() {
+  const { data: session } = useSession();
+  const [organization, setOrganization] = useState<Organization>({
+    name: "",
+    email: "",
+    phone: "",
+    address: "",
+    primaryColor: "#16a34a",
+    secondaryColor: "#10b981",
+    smsCredits: 0,
   });
-  const [sendEmail, setSendEmail] = useState(true);
-  const [sendSMS, setSendSMS] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
+  const [savedSuccess, setSavedSuccess] = useState(false);
+  const [isLoading, setIsLoading] = useState(true);
 
-  const addItem = () => {
-    setFormData({
-      ...formData,
-      items: [...formData.items, { name: "", quantity: 1, price: 0 }],
-    });
-  };
+  useEffect(() => {
+    if (session) {
+      fetchOrganization();
+    }
+  }, [session]);
 
-  const removeItem = (index: number) => {
-    if (formData.items.length > 1) {
-      setFormData({
-        ...formData,
-        items: formData.items.filter((_, i) => i !== index),
-      });
+  const fetchOrganization = async () => {
+    try {
+      const response = await fetch("/api/organization");
+      if (response.ok) {
+        const data = await response.json();
+        setOrganization(data);
+      }
+    } catch (error) {
+      console.error("Error fetching organization:", error);
+    } finally {
+      setIsLoading(false);
     }
   };
 
-  const updateItem = (index: number, field: keyof ReceiptItem, value: string | number) => {
-    const newItems = [...formData.items];
-    newItems[index] = { ...newItems[index], [field]: value };
-    setFormData({ ...formData, items: newItems });
-  };
-
-  const calculateSubtotal = () => {
-    return formData.items.reduce((sum, item) => sum + item.quantity * item.price, 0);
-  };
-
-  const calculateTotal = () => {
-    const subtotal = calculateSubtotal();
-    const discountAmount = (subtotal * formData.discount) / 100;
-    const taxAmount = ((subtotal - discountAmount) * formData.tax) / 100;
-    return subtotal - discountAmount + taxAmount;
-  };
-
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsSubmitting(true);
-
+  const handleSave = async () => {
+    setIsSaving(true);
     try {
-      const response = await fetch("/api/receipts", {
-        method: "POST",
+      const response = await fetch("/api/organization", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          ...formData,
-          totalAmount: calculateTotal(),
-          sendEmail,
-          sendSMS,
-        }),
+        body: JSON.stringify(organization),
       });
 
       if (response.ok) {
-        router.push("/receipts");
-      } else {
-        alert("Failed to create receipt");
+        setSavedSuccess(true);
+        setTimeout(() => setSavedSuccess(false), 3000);
       }
     } catch (error) {
-      console.error("Error creating receipt:", error);
-      alert("An error occurred");
+      console.error("Error saving organization:", error);
     } finally {
-      setIsSubmitting(false);
+      setIsSaving(false);
+    }
+  };
+
+  const handlePurchaseSMS = async (bundleSize: number, price: number) => {
+    try {
+      const response = await fetch("/api/sms/purchase", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ bundleSize, price }),
+      });
+
+      if (response.ok) {
+        fetchOrganization();
+      }
+    } catch (error) {
+      console.error("Error purchasing SMS credits:", error);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-6 lg:p-8">
-      <div className="max-w-4xl mx-auto space-y-6 md:space-y-8">
-        {/* Header - Responsive */}
-        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-          <div>
-            <Button
-              variant="ghost"
-              size="sm"
-              asChild
-              className="mb-4 hover:bg-green-100 dark:hover:bg-green-900/30 -ml-2"
-            >
-              <Link href="/receipts" className="flex items-center gap-2">
-                <ArrowLeft className="h-4 w-4" />
-                Back to Receipts
-              </Link>
-            </Button>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
-              Create New Receipt
-            </h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
-              Generate and send digital receipts to your customers
-            </p>
-          </div>
+      <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
+        {/* Header */}
+        <div>
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            Settings
+          </h1>
+          <p className="text-muted-foreground mt-2 text-sm sm:text-base">
+            Manage your organization profile and preferences
+          </p>
         </div>
 
-        <form onSubmit={handleSubmit} className="space-y-6">
-          {/* Customer Information */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl">Customer Information</CardTitle>
-              <CardDescription className="text-sm">Enter the customer's contact details</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="customerName">Customer Name *</Label>
-                  <Input
-                    id="customerName"
-                    placeholder="John Doe"
-                    value={formData.customerName}
-                    onChange={(e) => setFormData({ ...formData, customerName: e.target.value })}
-                    required
-                    className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="customerEmail">Email Address</Label>
-                  <Input
-                    id="customerEmail"
-                    type="email"
-                    placeholder="john@example.com"
-                    value={formData.customerEmail}
-                    onChange={(e) => setFormData({ ...formData, customerEmail: e.target.value })}
-                    className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
-                  />
-                </div>
-              </div>
-              <div className="space-y-2">
-                <Label htmlFor="customerPhone">Phone Number (with country code)</Label>
-                <Input
-                  id="customerPhone"
-                  type="tel"
-                  placeholder="+1234567890"
-                  value={formData.customerPhoneNumber}
-                  onChange={(e) => setFormData({ ...formData, customerPhoneNumber: e.target.value })}
-                  className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
-                />
-              </div>
+        {/* Tabs - Responsive Grid */}
+        <Tabs defaultValue="organization" className="space-y-6">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2 bg-green-100/50 dark:bg-green-950/30 p-1 h-auto">
+            <TabsTrigger value="organization" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
+              <Building2 className="h-4 w-4" />
+              <span className="hidden sm:inline">Organization</span>
+              <span className="sm:hidden">Org</span>
+            </TabsTrigger>
+            <TabsTrigger value="email" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
+              <Mail className="h-4 w-4" />
+              Email
+            </TabsTrigger>
+            <TabsTrigger value="sms" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
+              <Smartphone className="h-4 w-4" />
+              SMS
+            </TabsTrigger>
+            <TabsTrigger value="branding" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
+              <Palette className="h-4 w-4" />
+              <span className="hidden sm:inline">Branding</span>
+              <span className="sm:hidden">Brand</span>
+            </TabsTrigger>
+            <TabsTrigger value="billing" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
+              <CreditCard className="h-4 w-4" />
+              <span className="hidden sm:inline">Billing</span>
+              <span className="sm:hidden">Bill</span>
+            </TabsTrigger>
+          </TabsList>
 
-              {/* Delivery Method - Stack on Mobile */}
-              <div className="space-y-3 pt-4 border-t border-green-200 dark:border-green-900">
-                <Label className="text-sm font-semibold">Delivery Method</Label>
-                <div className="flex flex-col sm:flex-row gap-4">
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="sendEmail"
-                      checked={sendEmail}
-                      onCheckedChange={(checked) => setSendEmail(checked as boolean)}
-                      disabled={!formData.customerEmail}
-                      className="border-green-600 data-[state=checked]:bg-green-600"
-                    />
-                    <Label htmlFor="sendEmail" className="flex items-center gap-2 cursor-pointer text-sm">
-                      <Mail className="h-4 w-4 text-green-600" />
-                      Send via Email
-                    </Label>
-                  </div>
-                  <div className="flex items-center space-x-2">
-                    <Checkbox
-                      id="sendSMS"
-                      checked={sendSMS}
-                      onCheckedChange={(checked) => setSendSMS(checked as boolean)}
-                      disabled={!formData.customerPhoneNumber}
-                      className="border-emerald-600 data-[state=checked]:bg-emerald-600"
-                    />
-                    <Label htmlFor="sendSMS" className="flex items-center gap-2 cursor-pointer text-sm">
-                      <Smartphone className="h-4 w-4 text-emerald-600" />
-                      Send via SMS
-                    </Label>
-                  </div>
-                </div>
-                <p className="text-xs text-muted-foreground">
-                  At least one delivery method must be selected and have a valid recipient
-                </p>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Receipt Items */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-            <CardHeader>
-              <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                <div>
-                  <CardTitle className="text-xl sm:text-2xl">Receipt Items</CardTitle>
-                  <CardDescription className="text-sm">Add items or services to the receipt</CardDescription>
-                </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  onClick={addItem}
-                  className="w-full sm:w-auto border-green-200 dark:border-green-800 hover:bg-green-50 dark:hover:bg-green-900/30"
-                >
-                  <Plus className="h-4 w-4 mr-2" />
-                  Add Item
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {formData.items.map((item, index) => (
-                <div
-                  key={index}
-                  className="p-4 rounded-lg border border-green-200 dark:border-green-900 bg-gradient-to-br from-white to-green-50/30 dark:from-slate-900 dark:to-green-950/20 space-y-4"
-                >
-                  <div className="flex flex-col sm:flex-row gap-4 items-start">
-                    {/* Item Name - Full Width on Mobile */}
-                    <div className="flex-1 space-y-2 w-full">
-                      <Label htmlFor={`item-name-${index}`} className="text-sm">Item Name *</Label>
-                      <Input
-                        id={`item-name-${index}`}
-                        placeholder="Product or service name"
-                        value={item.name}
-                        onChange={(e) => updateItem(index, "name", e.target.value)}
-                        required
-                        className="border-green-200 dark:border-green-900"
-                      />
-                    </div>
-
-                    {/* Quantity - Stack on Mobile */}
-                    <div className="space-y-2 w-full sm:w-24">
-                      <Label htmlFor={`item-qty-${index}`} className="text-sm">Qty *</Label>
-                      <Input
-                        id={`item-qty-${index}`}
-                        type="number"
-                        min="1"
-                        value={item.quantity}
-                        onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
-                        required
-                        className="border-green-200 dark:border-green-900"
-                      />
-                    </div>
-
-                    {/* Price - Stack on Mobile */}
-                    <div className="space-y-2 w-full sm:w-32">
-                      <Label htmlFor={`item-price-${index}`} className="text-sm">Price ($) *</Label>
-                      <Input
-                        id={`item-price-${index}`}
-                        type="number"
-                        min="0"
-                        step="0.01"
-                        value={item.price}
-                        onChange={(e) => updateItem(index, "price", parseFloat(e.target.value) || 0)}
-                        required
-                        className="border-green-200 dark:border-green-900"
-                      />
-                    </div>
-
-                    {/* Subtotal and Delete - Stack on Mobile */}
-                    <div className="flex flex-row sm:flex-col items-center justify-between sm:justify-start gap-2 w-full sm:w-auto pt-0 sm:pt-7">
-                      <div className="text-sm font-semibold text-green-700 dark:text-green-400">
-                        ${(item.quantity * item.price).toFixed(2)}
+          {/* Organization Tab */}
+          <TabsContent value="organization" className="space-y-6">
+            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-xl sm:text-2xl">Organization Details</CardTitle>
+                <CardDescription className="text-sm">Update your business information</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                {isLoading ? (
+                  <div className="space-y-4 animate-pulse">
+                    {[...Array(4)].map((_, i) => (
+                      <div key={i} className="space-y-2">
+                        <div className="h-4 bg-green-200 dark:bg-green-900 rounded w-24" />
+                        <div className="h-10 bg-green-200 dark:bg-green-900 rounded" />
                       </div>
-                      {formData.items.length > 1 && (
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => removeItem(index)}
-                          className="hover:bg-red-50 dark:hover:bg-red-900/30 hover:text-red-600 h-9 w-9"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
+                    ))}
+                  </div>
+                ) : (
+                  <>
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <Label htmlFor="orgName">Organization Name</Label>
+                        <Input
+                          id="orgName"
+                          value={organization.name}
+                          onChange={(e) => setOrganization({ ...organization, name: e.target.value })}
+                          className="border-green-200 dark:border-green-900"
+                        />
+                      </div>
+                      <div className="space-y-2">
+                        <Label htmlFor="orgEmail">Email</Label>
+                        <Input
+                          id="orgEmail"
+                          type="email"
+                          value={organization.email}
+                          onChange={(e) => setOrganization({ ...organization, email: e.target.value })}
+                          className="border-green-200 dark:border-green-900"
+                        />
+                      </div>
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orgPhone">Phone</Label>
+                      <Input
+                        id="orgPhone"
+                        type="tel"
+                        value={organization.phone}
+                        onChange={(e) => setOrganization({ ...organization, phone: e.target.value })}
+                        className="border-green-200 dark:border-green-900"
+                      />
+                    </div>
+
+                    <div className="space-y-2">
+                      <Label htmlFor="orgAddress">Address</Label>
+                      <Textarea
+                        id="orgAddress"
+                        value={organization.address}
+                        onChange={(e) => setOrganization({ ...organization, address: e.target.value })}
+                        className="border-green-200 dark:border-green-900 min-h-24"
+                      />
+                    </div>
+
+                    <Button
+                      onClick={handleSave}
+                      disabled={isSaving}
+                      className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                    >
+                      {savedSuccess ? (
+                        <>
+                          <Check className="h-4 w-4 mr-2" />
+                          Saved!
+                        </>
+                      ) : (
+                        <>
+                          <Save className="h-4 w-4 mr-2" />
+                          {isSaving ? "Saving..." : "Save Changes"}
+                        </>
                       )}
+                    </Button>
+                  </>
+                )}
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Email Tab */}
+          <TabsContent value="email" className="space-y-6">
+            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-xl sm:text-2xl">Email Settings</CardTitle>
+                <CardDescription className="text-sm">Configure email delivery options</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
+                  <p className="text-sm text-green-700 dark:text-green-400">
+                    Email delivery is configured and ready to use. All receipts will be sent from your organization email.
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* SMS Tab */}
+          <TabsContent value="sms" className="space-y-6">
+            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+              <CardHeader>
+                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                  <div>
+                    <CardTitle className="text-xl sm:text-2xl">SMS Credits</CardTitle>
+                    <CardDescription className="text-sm">Purchase credits to send receipts via SMS</CardDescription>
+                  </div>
+                  <Badge className="bg-green-600 text-white text-base sm:text-lg px-4 py-2">
+                    {organization.smsCredits} Credits
+                  </Badge>
+                </div>
+              </CardHeader>
+              <CardContent>
+                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                  {[
+                    { credits: 100, price: 10, popular: false },
+                    { credits: 500, price: 45, popular: true },
+                    { credits: 1000, price: 80, popular: false },
+                  ].map((bundle) => (
+                    <Card
+                      key={bundle.credits}
+                      className={`relative overflow-hidden ${
+                        bundle.popular
+                          ? "border-2 border-green-500 shadow-lg"
+                          : "border border-green-200 dark:border-green-900"
+                      }`}
+                    >
+                      {bundle.popular && (
+                        <div className="absolute top-0 right-0 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs px-3 py-1 rounded-bl-lg">
+                          Popular
+                        </div>
+                      )}
+                      <CardHeader className="pb-4">
+                        <CardTitle className="text-2xl sm:text-3xl font-bold text-center">{bundle.credits}</CardTitle>
+                        <CardDescription className="text-center text-sm">SMS Credits</CardDescription>
+                      </CardHeader>
+                      <CardContent className="space-y-4">
+                        <div className="text-center">
+                          <div className="text-3xl sm:text-4xl font-bold text-green-600">${bundle.price}</div>
+                          <p className="text-xs text-muted-foreground mt-1">
+                            ${(bundle.price / bundle.credits).toFixed(2)} per SMS
+                          </p>
+                        </div>
+                        <Button
+                          onClick={() => handlePurchaseSMS(bundle.credits, bundle.price)}
+                          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                        >
+                          Purchase
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              </CardContent>
+            </Card>
+          </TabsContent>
+
+          {/* Branding Tab */}
+          <TabsContent value="branding" className="space-y-6">
+            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-xl sm:text-2xl">Brand Colors</CardTitle>
+                <CardDescription className="text-sm">Customize your receipt appearance</CardDescription>
+              </CardHeader>
+              <CardContent className="space-y-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  <div className="space-y-2">
+                    <Label htmlFor="primaryColor">Primary Color</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="primaryColor"
+                        type="color"
+                        value={organization.primaryColor}
+                        onChange={(e) => setOrganization({ ...organization, primaryColor: e.target.value })}
+                        className="h-10 w-20 border-green-200 dark:border-green-900"
+                      />
+                      <Input
+                        value={organization.primaryColor}
+                        onChange={(e) => setOrganization({ ...organization, primaryColor: e.target.value })}
+                        className="flex-1 border-green-200 dark:border-green-900"
+                      />
+                    </div>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="secondaryColor">Secondary Color</Label>
+                    <div className="flex gap-2">
+                      <Input
+                        id="secondaryColor"
+                        type="color"
+                        value={organization.secondaryColor}
+                        onChange={(e) => setOrganization({ ...organization, secondaryColor: e.target.value })}
+                        className="h-10 w-20 border-green-200 dark:border-green-900"
+                      />
+                      <Input
+                        value={organization.secondaryColor}
+                        onChange={(e) => setOrganization({ ...organization, secondaryColor: e.target.value })}
+                        className="flex-1 border-green-200 dark:border-green-900"
+                      />
                     </div>
                   </div>
                 </div>
-              ))}
-            </CardContent>
-          </Card>
 
-          {/* Calculations */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl">Adjustments</CardTitle>
-              <CardDescription className="text-sm">Apply discounts and taxes</CardDescription>
-            </CardHeader>
-            <CardContent className="space-y-6">
-              {/* Discount and Tax - Stack on Mobile */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="discount">Discount (%)</Label>
-                  <Input
-                    id="discount"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={formData.discount}
-                    onChange={(e) => setFormData({ ...formData, discount: parseFloat(e.target.value) || 0 })}
-                    className="border-green-200 dark:border-green-900"
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="tax">Tax (%)</Label>
-                  <Input
-                    id="tax"
-                    type="number"
-                    min="0"
-                    max="100"
-                    step="0.01"
-                    value={formData.tax}
-                    onChange={(e) => setFormData({ ...formData, tax: parseFloat(e.target.value) || 0 })}
-                    className="border-green-200 dark:border-green-900"
-                  />
-                </div>
-              </div>
+                <Button
+                  onClick={handleSave}
+                  disabled={isSaving}
+                  className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
+                >
+                  {savedSuccess ? (
+                    <>
+                      <Check className="h-4 w-4 mr-2" />
+                      Saved!
+                    </>
+                  ) : (
+                    <>
+                      <Save className="h-4 w-4 mr-2" />
+                      {isSaving ? "Saving..." : "Save Changes"}
+                    </>
+                  )}
+                </Button>
+              </CardContent>
+            </Card>
+          </TabsContent>
 
-              {/* Summary - Responsive Text */}
-              <div className="space-y-3 pt-4 border-t border-green-200 dark:border-green-900">
-                <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal</span>
-                  <span className="font-medium">${calculateSubtotal().toFixed(2)}</span>
+          {/* Billing Tab */}
+          <TabsContent value="billing" className="space-y-6">
+            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+              <CardHeader>
+                <CardTitle className="text-xl sm:text-2xl">Billing Information</CardTitle>
+                <CardDescription className="text-sm">Manage your payment methods and billing</CardDescription>
+              </CardHeader>
+              <CardContent>
+                <div className="p-6 sm:p-8 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-lg border border-green-200 dark:border-green-900 text-center">
+                  <CreditCard className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-green-600 mb-4" />
+                  <h3 className="text-lg sm:text-xl font-semibold mb-2">Payment Integration Coming Soon</h3>
+                  <p className="text-sm text-muted-foreground">
+                    We're working on integrating secure payment options for your convenience.
+                  </p>
                 </div>
-                {formData.discount > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Discount ({formData.discount}%)</span>
-                    <span className="font-medium text-red-600">
-                      -${((calculateSubtotal() * formData.discount) / 100).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                {formData.tax > 0 && (
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax ({formData.tax}%)</span>
-                    <span className="font-medium">
-                      +${(((calculateSubtotal() - (calculateSubtotal() * formData.discount) / 100) * formData.tax) / 100).toFixed(2)}
-                    </span>
-                  </div>
-                )}
-                <div className="flex justify-between text-base sm:text-lg font-bold pt-3 border-t border-green-200 dark:border-green-900">
-                  <span>Total</span>
-                  <span className="text-green-600 dark:text-green-400 text-xl sm:text-2xl">${calculateTotal().toFixed(2)}</span>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-
-          {/* Additional Notes */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-            <CardHeader>
-              <CardTitle className="text-xl sm:text-2xl">Additional Notes</CardTitle>
-              <CardDescription className="text-sm">Optional message or special instructions</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <Textarea
-                placeholder="Add any additional notes or terms..."
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
-                className="min-h-24 border-green-200 dark:border-green-900 focus-visible:ring-green-500"
-              />
-            </CardContent>
-          </Card>
-
-          {/* Submit Buttons - Full Width on Mobile */}
-          <div className="flex flex-col sm:flex-row gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              onClick={() => router.back()}
-              className="w-full sm:flex-1 border-green-200 dark:border-green-800"
-            >
-              Cancel
-            </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting || (!sendEmail && !sendSMS)}
-              className="w-full sm:flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
-            >
-              {isSubmitting ? (
-                <>Creating Receipt...</>
-              ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Create & Send Receipt
-                </>
-              )}
-            </Button>
-          </div>
-        </form>
+              </CardContent>
+            </Card>
+          </TabsContent>
+        </Tabs>
       </div>
     </div>
   );
