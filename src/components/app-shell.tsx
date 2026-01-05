@@ -35,15 +35,18 @@ function NavLink({
   icon: Icon,
   children,
   isActive,
+  onClick,
 }: {
   href: string;
   icon: React.ElementType;
   children: React.ReactNode;
   isActive: boolean;
+  onClick?: () => void;
 }) {
   return (
     <Link
       href={href}
+      onClick={onClick}
       className={cn(
         "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
         isActive
@@ -89,6 +92,11 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const handleLogout = async () => {
     await signOut({ redirect: false });
     router.push('/login');
+  };
+
+  // Close mobile menu when clicking a nav link
+  const handleNavLinkClick = () => {
+    setIsMobileMenuOpen(false);
   };
 
   const navigation = [
@@ -229,6 +237,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   href={item.href}
                   icon={item.icon}
                   isActive={pathname.startsWith(item.href)}
+                  onClick={handleNavLinkClick}
                 >
                   {item.label}
                 </NavLink>
