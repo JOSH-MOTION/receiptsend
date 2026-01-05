@@ -199,3 +199,45 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const organizationId = (session.user as any).organizationId;
+    const { searchParams } = new URL(req.url);
+    const receiptId = searchParams.get('id');
+
+    if (!receiptId) {
+      return NextResponse.json({ error: 'Receipt ID required' }, { status: 400 });
+    }
+
+    await connectDB();
+
+    // Find and delete the receipt, ensuring it belongs to the organization
+    const receipt = await Receipt.findOneAndDelete({
+      _id: receiptId,
+      organizationId: organizationId,
+    });
+
+    if (!receipt) {
+      return NextResponse.json({ error: 'Receipt not found' }, { status: 404 });
+    }
+
+    console.log('✅ Receipt deleted:', receiptId);
+
+    return NextResponse.json({ 
+      message: 'Receipt deleted successfully',
+      receiptNumber: receipt.receiptNumber 
+    });
+  } catch (error: any) {
+    console.error('❌ Delete receipt error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete receipt' },
+      { status: 500 }
+    );
+  }
+}

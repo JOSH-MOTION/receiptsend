@@ -39,6 +39,17 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import {
+  AlertDialog,
+  AlertDialogAction,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
+import { useToast } from "@/hooks/use-toast";
 
 interface ReceiptItem {
   name: string;
@@ -63,12 +74,16 @@ interface Receipt {
 
 export default function ReceiptsPage() {
   const { data: session } = useSession();
+  const { toast } = useToast();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [filteredReceipts, setFilteredReceipts] = useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
   const [isClient, setIsClient] = useState(false);
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [receiptToDelete, setReceiptToDelete] = useState<Receipt | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
@@ -122,19 +137,43 @@ export default function ReceiptsPage() {
     setFilteredReceipts(filtered);
   };
 
-  const handleDelete = async (id: string) => {
-    if (!confirm("Are you sure you want to delete this receipt?")) return;
+  const handleDeleteClick = (receipt: Receipt) => {
+    setReceiptToDelete(receipt);
+    setDeleteDialogOpen(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    if (!receiptToDelete) return;
     
+    setIsDeleting(true);
     try {
-      const response = await fetch(`/api/receipts/${id}`, {
+      const response = await fetch(`/api/receipts?id=${receiptToDelete._id}`, {
         method: 'DELETE',
       });
       
       if (response.ok) {
-        setReceipts(receipts.filter((r) => r._id !== id));
+        // Remove from local state
+        setReceipts(receipts.filter((r) => r._id !== receiptToDelete._id));
+        
+        toast({
+          title: 'Receipt Deleted',
+          description: `Receipt #${receiptToDelete.receiptNumber} has been deleted successfully.`,
+        });
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || 'Failed to delete receipt');
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error deleting receipt:', error);
+      toast({
+        title: 'Delete Failed',
+        description: error.message || 'Failed to delete receipt. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsDeleting(false);
+      setDeleteDialogOpen(false);
+      setReceiptToDelete(null);
     }
   };
 
@@ -317,8 +356,8 @@ export default function ReceiptsPage() {
                                   )}
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
-                                    onClick={() => handleDelete(receipt._id)}
-                                    className="text-red-600 focus:text-red-600"
+                                    onClick={() => handleDeleteClick(receipt)}
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete
@@ -363,6 +402,31 @@ export default function ReceiptsPage() {
           </CardContent>
         </Card>
       </div>
+
+      {/* Delete Confirmation Dialog */}
+      <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>Delete Receipt?</AlertDialogTitle>
+            <AlertDialogDescription>
+              Are you sure you want to delete receipt <span className="font-semibold">#{receiptToDelete?.receiptNumber}</span> for{" "}
+              <span className="font-semibold">{receiptToDelete?.customerName}</span>?
+              <br /><br />
+              This action cannot be undone and will permanently remove the receipt from your records.
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogAction
+              onClick={handleDeleteConfirm}
+              disabled={isDeleting}
+              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+            >
+              {isDeleting ? "Deleting..." : "Delete Receipt"}
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
     </div>
   );
 }

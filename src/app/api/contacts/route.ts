@@ -69,3 +69,48 @@ export async function POST(req: NextRequest) {
     );
   }
 }
+
+// DELETE a contact
+export async function DELETE(req: NextRequest) {
+  try {
+    const session = await getServerSession(authOptions);
+    
+    if (!session?.user) {
+      return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
+    }
+
+    const organizationId = (session.user as any).organizationId;
+    const { searchParams } = new URL(req.url);
+    const contactId = searchParams.get('id');
+
+    if (!contactId) {
+      return NextResponse.json({ error: 'Contact ID required' }, { status: 400 });
+    }
+
+    await connectDB();
+
+    // Find and delete the contact, ensuring it belongs to the organization
+    const contact = await Contact.findOneAndDelete({
+      _id: contactId,
+      organizationId: organizationId,
+    });
+
+    if (!contact) {
+      return NextResponse.json({ error: 'Contact not found' }, { status: 404 });
+    }
+
+    console.log('✅ Contact deleted:', contactId);
+
+    return NextResponse.json({ 
+      message: 'Contact deleted successfully',
+      contactName: contact.name,
+      contactEmail: contact.email
+    });
+  } catch (error: any) {
+    console.error('❌ Delete contact error:', error);
+    return NextResponse.json(
+      { error: error.message || 'Failed to delete contact' },
+      { status: 500 }
+    );
+  }
+}
