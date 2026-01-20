@@ -92,7 +92,7 @@ export default function SignupPage() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+          <form className="grid gap-4">
             <FormField
               control={form.control}
               name="organizationName"
@@ -132,7 +132,7 @@ export default function SignupPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button onClick={form.handleSubmit(onSubmit)} className="w-full" disabled={isLoading}>
               {isLoading ? 'Creating account...' : 'Create an account'}
             </Button>
           </form>

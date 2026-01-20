@@ -76,7 +76,7 @@ export default function LoginPage() {
       </CardHeader>
       <CardContent>
         <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="grid gap-4">
+          <form className="grid gap-4">
             <FormField
               control={form.control}
               name="email"
@@ -111,7 +111,7 @@ export default function LoginPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full" disabled={isLoading}>
+            <Button onClick={form.handleSubmit(onSubmit)} className="w-full" disabled={isLoading}>
               {isLoading ? 'Logging in...' : 'Log in'}
             </Button>
           </form>
