@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ArrowLeft, Send, Loader2, Save } from "lucide-react";
 import Link from "next/link";
-import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc } from "firebase/firestore";
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 
 import { Button } from "@/components/ui/button";
@@ -339,7 +339,7 @@ export default function NewReceiptPage() {
                       {isTemplatesLoading ? (
                         <SelectItem value="loading" disabled>Loading...</SelectItem>
                       ) : (
-                        templates.map((template) => (
+                        templates && templates.map((template) => (
                           <SelectItem key={template.id} value={template.content}>
                             {template.name}
                           </SelectItem>
