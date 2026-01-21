@@ -3,13 +3,14 @@ import { redirect } from 'next/navigation';
 import { getServerSession } from 'next-auth';
 import { isSuperAdmin } from '@/lib/super-admin';
 import SuperAdminDashboard from '@/components/super-admin-dashboard';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export default async function AdminPage() {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   
   // Check if user is logged in
   if (!session) {
-    redirect('/auth/signin?callbackUrl=/admin');
+    redirect('/login?callbackUrl=/admin');
   }
 
   // Check if user is super admin
@@ -18,10 +19,10 @@ export default async function AdminPage() {
   if (!isAdmin) {
     return (
       <div className="flex items-center justify-center min-h-screen bg-background">
-        <div className="text-center max-w-md p-8 border rounded-lg shadow-lg">
+        <div className="text-center max-w-md p-8 border rounded-lg shadow-lg bg-card">
           <div className="mb-6">
             <svg
-              className="mx-auto h-16 w-16 text-red-500"
+              className="mx-auto h-16 w-16 text-destructive"
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"
@@ -35,15 +36,15 @@ export default async function AdminPage() {
             </svg>
           </div>
           
-          <h1 className="text-3xl font-bold text-red-600 mb-4">
+          <h1 className="text-3xl font-bold text-destructive-foreground mb-4">
             Access Denied
           </h1>
           
           <p className="text-muted-foreground mb-2">
-            You don't have permission to access the Super Admin Dashboard.
+            You do not have permission to access the Super Admin Dashboard.
           </p>
           
-          <div className="mt-4 p-3 bg-muted rounded text-sm">
+          <div className="mt-4 p-3 bg-muted rounded text-sm text-left">
             <p className="text-muted-foreground">
               <span className="font-medium">Logged in as:</span>
               <br />

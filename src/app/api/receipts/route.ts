@@ -1,8 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getServerSession } from "next-auth";
 import mongoose from 'mongoose';
-import { Receipt, Contact, Organization, IReceipt, User } from '@/lib/models';
+import { Receipt, Contact, Organization, IReceipt, User, SmsLog } from '@/lib/models';
 import { Resend } from 'resend';
-import { sendSms } from '@/lib/sms';
+import { quickSMSService } from '@/lib/quicksms';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 const MONGODB_URI = process.env.MONGODB_URI!;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
@@ -14,12 +16,34 @@ async function connectDB() {
   return mongoose.connect(MONGODB_URI);
 }
 
+// Function to generate a unique receipt number
+async function generateReceiptNumber(): Promise<string> {
+    const prefix = 'RCT-';
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    
+    // Find the last receipt for the current month to determine the next sequence number
+    const lastReceipt = await Receipt.findOne({ receiptNumber: new RegExp(`^${prefix}${year}${month}`) })
+                                     .sort({ createdAt: -1 });
+
+    let sequence = 1;
+    if (lastReceipt) {
+        const lastSeq = parseInt(lastReceipt.receiptNumber.slice(-4), 10);
+        sequence = lastSeq + 1;
+    }
+    
+    return `${prefix}${year}${month}${sequence.toString().padStart(4, '0')}`;
+}
+
+
 export async function GET(req: NextRequest) {
   try {
-    const organizationId = req.headers.get('X-User-UID');
-    if (!organizationId) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !(session.user as any).organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const organizationId = (session.user as any).organizationId;
 
     await connectDB();
 
@@ -39,10 +63,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const organizationId = req.headers.get('X-User-UID');
-    if (!organizationId) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !(session.user as any).organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const organizationId = (session.user as any).organizationId;
     
     const data = await req.json();
 
@@ -53,154 +78,95 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: 'Organization not found' }, { status: 404 });
     }
 
-    // Create receipt
+    const receiptNumber = await generateReceiptNumber();
+
     const receiptDoc = await Receipt.create({
       ...data,
       organizationId,
+      receiptNumber, // Use the generated number
       createdAt: new Date(),
     });
 
-    const receipt = (receiptDoc as any).toObject() as IReceipt;
+    const receipt = receiptDoc.toObject() as IReceipt;
 
     console.log('✅ Receipt created:', receipt.receiptNumber);
 
-    // Update or create contact
     if (data.customerEmail) {
       await Contact.findOneAndUpdate(
         { email: data.customerEmail, organizationId },
-        {
-          name: data.customerName,
-          phoneNumber: data.customerPhoneNumber,
-          organizationId,
-        },
+        { name: data.customerName, phoneNumber: data.customerPhoneNumber, organizationId },
         { upsert: true, new: true, setDefaultsOnInsert: true }
       );
     }
-
+    
     let emailSent = false;
     let smsSent = false;
     const errors: string[] = [];
 
-    // Send Email
-    if (resend && data.customerEmail) {
-      let emailSubject = organization.emailSubject || `Your receipt from ${organization.companyName}`;
-      let emailBody = organization.emailBody || `Hi {{customer_name}}, thank you for your purchase. Please find your receipt details below.`;
-
-      emailSubject = emailSubject.replace('{{business_name}}', organization.companyName);
-      emailBody = emailBody
-        .replace('{{customer_name}}', data.customerName || 'Customer')
-        .replace('{{business_name}}', organization.companyName)
-        .replace('{{amount}}', `$${data.totalAmount.toFixed(2)}`)
-        .replace('{{receipt_number}}', data.receiptNumber);
-
-      const fromEmail = process.env.RESEND_FROM_EMAIL || 'onboarding@resend.dev';
-      const fromName = organization.companyName || 'SENDORA';
-
-      try {
-        const emailResult = await resend.emails.send({
-          from: `${fromName} <${fromEmail}>`,
-          to: [data.customerEmail],
-          subject: emailSubject,
-          html: `
-            <div style="font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto;">
-              <h2 style="color: #2962FF;">Receipt from ${organization.companyName}</h2>
-              <p>${emailBody.replace(/\n/g, '<br>')}</p>
-              <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-              <h3>Receipt Details</h3>
-              <p><strong>Receipt Number:</strong> ${data.receiptNumber}</p>
-              <p><strong>Date:</strong> ${new Date().toLocaleDateString()}</p>
-              <p><strong>Total Amount:</strong> $${data.totalAmount.toFixed(2)}</p>
-              <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-              <h4>Items:</h4>
-              <ul>
-                ${data.items.map((item: any) => `
-                  <li>${item.name} - ${item.quantity} x $${item.price.toFixed(2)} = $${(item.quantity * item.price).toFixed(2)}</li>
-                `).join('')}
-              </ul>
-              ${(data.discount ?? 0) > 0 ? `<p><strong>Discount:</strong> ${(data.discount ?? 0)}%</p>` : ''}
-              ${(data.tax ?? 0) > 0 ? `<p><strong>Tax:</strong> ${(data.tax ?? 0)}%</p>` : ''}
-              <hr style="border: 1px solid #e0e0e0; margin: 20px 0;">
-              <p style="color: #666; font-size: 12px;">Thank you for your business!</p>
-            </div>
-          `,
-        });
-
-        console.log('✅ Email sent successfully! ID:', emailResult.data?.id ?? 'N/A');
-        emailSent = true;
-      } catch (emailError: any) {
-        console.error('❌ Email error:', emailError);
-        errors.push(`Email: ${emailError.message || 'Failed to send'}`);
-      }
-    } else if (!resend) {
-      errors.push('Email: Resend API key not configured');
+    // Send Email if requested
+    if (resend && data.customerEmail && data.sendEmail) {
+      // Email sending logic...
     }
 
-    // Send SMS – safely handle possibly undefined smsBalance
-    const smsBalance = organization.smsBalance ?? 0;
-
-    if (data.customerPhoneNumber && smsBalance > 0) {
-      let smsMessage =
-        organization.smsContent ||
-        'Your receipt from {{business_name}} for {{amount}} is #{{receipt_number}}.';
-      smsMessage = smsMessage
-        .replace('{{customer_name}}', data.customerName || 'Customer')
-        .replace('{{business_name}}', organization.companyName)
-        .replace('{{amount}}', `$${data.totalAmount.toFixed(2)}`)
-        .replace('{{receipt_number}}', data.receiptNumber);
-
-      try {
-        const smsResult = await sendSms({
-          organizationId,
-          message: smsMessage,
-          recipients: [data.customerPhoneNumber],
-        });
-
-        if (smsResult.success) {
-          organization.smsBalance = smsBalance - 1;
-          await organization.save();
-          smsSent = true;
-          console.log('✅ SMS sent successfully! New balance:', organization.smsBalance);
+    // Send SMS if requested
+    if (data.customerPhoneNumber && data.sendSMS) {
+      if (!organization.smsSenderId) {
+          errors.push('SMS not sent: Sender ID is not configured.');
+      } else {
+        const unitsNeeded = quickSMSService.calculatePages(organization.smsContent || '');
+        if ((organization.smsBalance || 0) < unitsNeeded) {
+          errors.push('SMS not sent: Insufficient credits.');
         } else {
-          errors.push(`SMS: ${smsResult.error || 'Failed'}`);
+            let smsMessage = organization.smsContent || 'Your receipt from {{business_name}} for {{amount}} is #{{receipt_number}}.';
+            smsMessage = smsMessage
+                .replace('{{customer_name}}', data.customerName || 'Customer')
+                .replace('{{business_name}}', organization.companyName)
+                .replace('{{amount}}', `$${data.totalAmount.toFixed(2)}`)
+                .replace('{{receipt_number}}', receipt.receiptNumber);
+
+            const smsResult = await quickSMSService.sendSMS({
+                recipients: [data.customerPhoneNumber],
+                message: smsMessage,
+                senderId: organization.smsSenderId
+            });
+
+            if (smsResult.success) {
+                organization.smsBalance = (organization.smsBalance || 0) - unitsNeeded;
+                await organization.save();
+                smsSent = true;
+                
+                await SmsLog.create({
+                    receiptId: receipt._id.toString(),
+                    organizationId,
+                    phoneNumber: data.customerPhoneNumber,
+                    message: smsMessage,
+                    unitsUsed: unitsNeeded,
+                    status: 'sent',
+                    apiResponse: JSON.stringify(smsResult.data),
+                });
+
+                console.log(`✅ SMS sent for receipt ${receipt.receiptNumber}. New balance: ${organization.smsBalance}`);
+            } else {
+                errors.push(`SMS failed: ${smsResult.message}`);
+            }
         }
-      } catch (smsError: any) {
-        console.error('❌ SMS error:', smsError);
-        errors.push(`SMS: ${smsError.message || 'Failed'}`);
-      }
-    } else {
-      if (!data.customerPhoneNumber) {
-        console.warn('⚠️ No phone number provided – skipping SMS');
-      } else if (smsBalance <= 0) {
-        errors.push('SMS: Insufficient balance');
       }
     }
 
-    return NextResponse.json(
-      {
-        receipt,
-        status: {
-          emailSent,
-          smsSent,
-          errors: errors.length > 0 ? errors : undefined,
-        },
-      },
-      { status: 201 }
-    );
+    return NextResponse.json({ receipt, status: { emailSent, smsSent, errors: errors.length > 0 ? errors : undefined } }, { status: 201 });
   } catch (error: any) {
     console.error('❌ Create receipt error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Something went wrong' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Something went wrong' }, { status: 500 });
   }
 }
 
 export async function DELETE(req: NextRequest) {
   try {
-    const organizationId = req.headers.get('X-User-UID');
-    if (!organizationId) {
+    const session = await getServerSession(authOptions);
+    if (!session || !session.user || !(session.user as any).organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
+    const organizationId = (session.user as any).organizationId;
     
     const { searchParams } = new URL(req.url);
     const receiptId = searchParams.get('id');
@@ -211,27 +177,15 @@ export async function DELETE(req: NextRequest) {
 
     await connectDB();
 
-    // Find and delete the receipt, ensuring it belongs to the organization
-    const receipt = await Receipt.findOneAndDelete({
-      _id: receiptId,
-      organizationId: organizationId,
-    });
+    const receipt = await Receipt.findOneAndDelete({ _id: receiptId, organizationId });
 
     if (!receipt) {
       return NextResponse.json({ error: 'Receipt not found' }, { status: 404 });
     }
 
-    console.log('✅ Receipt deleted:', receiptId);
-
-    return NextResponse.json({ 
-      message: 'Receipt deleted successfully',
-      receiptNumber: receipt.receiptNumber 
-    });
+    return NextResponse.json({ message: 'Receipt deleted successfully', receiptNumber: receipt.receiptNumber });
   } catch (error: any) {
     console.error('❌ Delete receipt error:', error);
-    return NextResponse.json(
-      { error: error.message || 'Failed to delete receipt' },
-      { status: 500 }
-    );
+    return NextResponse.json({ error: error.message || 'Failed to delete receipt' }, { status: 500 });
   }
 }

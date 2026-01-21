@@ -27,7 +27,8 @@ class QuickSMSService {
   constructor() {
     this.publicKey = process.env.QUICKSMS_PUBLIC_KEY || '';
     if (!this.publicKey) {
-      throw new Error('QUICKSMS_PUBLIC_KEY is not defined in environment variables');
+      // Don't throw error at init, but log it. Allows app to run without SMS.
+      console.warn('QUICKSMS_PUBLIC_KEY is not defined. SMS functionality will be disabled.');
     }
   }
 
@@ -35,11 +36,17 @@ class QuickSMSService {
    * Send SMS to multiple recipients
    */
   async sendSMS(params: SendSMSParams): Promise<QuickSMSResponse> {
+    if (!this.publicKey) {
+      return { success: false, message: 'QuickSMS service is not configured.' };
+    }
     try {
-      // Format phone numbers (remove spaces, ensure proper format)
-      const formattedRecipients = params.recipients.map(phone => 
-        phone.replace(/\s+/g, '').replace(/^\+/, '')
-      );
+      // Format phone numbers
+      const formattedRecipients = params.recipients.map(phone => this.formatPhoneNumber(phone));
+      const validRecipients = formattedRecipients.filter(this.validatePhoneNumber);
+      
+      if(validRecipients.length === 0) {
+          return { success: false, message: 'No valid phone numbers provided.'}
+      }
 
       const response = await fetch(`${this.baseUrl}/sms/send`, {
         method: 'POST',
@@ -48,7 +55,7 @@ class QuickSMSService {
           'Authorization': `Bearer ${this.publicKey}`,
         },
         body: JSON.stringify({
-          recipients: formattedRecipients,
+          recipients: validRecipients,
           message: params.message,
           sender_id: params.senderId,
         }),
@@ -56,8 +63,9 @@ class QuickSMSService {
 
       const data = await response.json();
 
-      if (!response.ok) {
-        throw new Error(data.message || 'Failed to send SMS');
+      if (!response.ok || data.status !== 'success') {
+          const errorMessage = data.message || `Failed to send SMS with status: ${response.status}`;
+          throw new Error(errorMessage);
       }
 
       return {
@@ -76,9 +84,12 @@ class QuickSMSService {
   }
 
   /**
-   * Get SMS balance
+   * Get SMS balance from your main provider account
    */
   async getBalance(): Promise<BalanceResponse> {
+    if (!this.publicKey) {
+        return { success: false, balance: 0, currency: 'GHS' };
+    }
     try {
       const response = await fetch(`${this.baseUrl}/account/balance`, {
         method: 'GET',
@@ -115,7 +126,8 @@ class QuickSMSService {
     const length = message.length;
     if (length === 0) return 0;
     if (length <= 160) return 1;
-    return Math.ceil(length / 160);
+    // For UCS-2 characters, it might be less, but we use a simple model here.
+    return Math.ceil(length / 153);
   }
 
   /**
@@ -130,59 +142,23 @@ class QuickSMSService {
    * Validate phone number format (Ghana numbers)
    */
   validatePhoneNumber(phone: string): boolean {
-    // Remove spaces and special characters
-    const cleaned = phone.replace(/[\s\-\(\)]/g, '');
-    
-    // Ghana phone numbers: 10 digits starting with 0, or 12 digits starting with 233
-    const ghanaPattern = /^(0\d{9}|233\d{9})$/;
-    
-    return ghanaPattern.test(cleaned);
+    // Basic check for Ghana numbers format 233XXXXXXXXX
+    return /^233\d{9}$/.test(phone);
   }
 
   /**
    * Format phone number for QuickSMS (233XXXXXXXXX format)
    */
   formatPhoneNumber(phone: string): string {
-    // Remove all spaces and special characters
-    let cleaned = phone.replace(/[\s\-\(\)]/g, '');
-    
-    // Remove leading +
-    cleaned = cleaned.replace(/^\+/, '');
-    
-    // If starts with 0, replace with 233
+    let cleaned = phone.replace(/[\s\-\(\)\+]/g, '');
     if (cleaned.startsWith('0')) {
       cleaned = '233' + cleaned.substring(1);
     }
-    
-    // If doesn't start with 233, add it
-    if (!cleaned.startsWith('233')) {
-      cleaned = '233' + cleaned;
+    if (cleaned.length === 9 && !cleaned.startsWith('233')) {
+        // Assumes it's a local number without leading 0
+        cleaned = '233' + cleaned;
     }
-    
     return cleaned;
-  }
-
-  /**
-   * Send SMS with template placeholders
-   */
-  async sendTemplatedSMS(
-    recipients: string[],
-    template: string,
-    placeholders: Record<string, string>,
-    senderId: string
-  ): Promise<QuickSMSResponse> {
-    let message = template;
-    
-    // Replace placeholders
-    Object.entries(placeholders).forEach(([key, value]) => {
-      message = message.replace(new RegExp(`{{${key}}}`, 'g'), value);
-    });
-
-    return this.sendSMS({
-      recipients,
-      message,
-      senderId,
-    });
   }
 }
 

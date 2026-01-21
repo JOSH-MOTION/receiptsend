@@ -77,7 +77,7 @@ export function calculateSmsPages(message: string): number {
   const length = message.length;
   if (length === 0) return 0;
   if (length <= 160) return 1;
-  return Math.ceil(length / 160);
+  return Math.ceil(length / 153); // Standard for multi-part SMS
 }
 
 /**
@@ -123,5 +123,3 @@ export function formatCurrency(amount: number): string {
 export function hasEnoughBalance(currentBalance: number, unitsNeeded: number): boolean {
   return currentBalance >= unitsNeeded;
 }
-
-

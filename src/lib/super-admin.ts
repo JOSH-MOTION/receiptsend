@@ -2,13 +2,14 @@
 import { getServerSession } from 'next-auth';
 import { User } from '@/lib/models';
 import connectDB from '@/lib/mongodb';
+import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 /**
  * Check if the current user is a super admin
  * Uses both environment variable and database role
  */
 export async function isSuperAdmin(): Promise<boolean> {
-  const session = await getServerSession();
+  const session = await getServerSession(authOptions);
   
   if (!session || !session.user?.email) {
     return false;

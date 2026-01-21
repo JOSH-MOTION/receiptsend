@@ -19,7 +19,7 @@ interface PaystackVerifyResponse {
     domain: string;
     status: 'success' | 'failed' | 'abandoned';
     reference: string;
-    amount: number;
+    amount: number; // in kobo/pesewas
     message: string | null;
     gateway_response: string;
     paid_at: string;
@@ -67,7 +67,7 @@ class PaystackService {
   constructor() {
     this.secretKey = process.env.PAYSTACK_SECRET_KEY || '';
     if (!this.secretKey) {
-      throw new Error('PAYSTACK_SECRET_KEY is not defined in environment variables');
+      console.warn('PAYSTACK_SECRET_KEY is not defined. Payment functionality will be disabled.');
     }
   }
 
@@ -83,6 +83,9 @@ class PaystackService {
       organizationId: string;
     }
   ): Promise<PaystackInitializeResponse> {
+    if (!this.secretKey) {
+        throw new Error('Payment service is not configured.');
+    }
     try {
       // Convert amount to pesewas (Paystack uses smallest currency unit)
       const amountInPesewas = Math.round(amount * 100);
@@ -119,6 +122,9 @@ class PaystackService {
    * Verify a payment transaction
    */
   async verifyTransaction(reference: string): Promise<PaystackVerifyResponse> {
+     if (!this.secretKey) {
+        throw new Error('Payment service is not configured.');
+    }
     try {
       const response = await fetch(
         `${this.baseUrl}/transaction/verify/${reference}`,
@@ -139,66 +145,6 @@ class PaystackService {
       return data;
     } catch (error) {
       console.error('Paystack verification error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * Get transaction details
-   */
-  async getTransaction(id: number): Promise<PaystackVerifyResponse> {
-    try {
-      const response = await fetch(`${this.baseUrl}/transaction/${id}`, {
-        method: 'GET',
-        headers: {
-          Authorization: `Bearer ${this.secretKey}`,
-        },
-      });
-
-      const data: PaystackVerifyResponse = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Paystack get transaction error:', error);
-      throw error;
-    }
-  }
-
-  /**
-   * List transactions with optional filters
-   */
-  async listTransactions(params?: {
-    perPage?: number;
-    page?: number;
-    customer?: string;
-    status?: 'success' | 'failed' | 'abandoned';
-    from?: string;
-    to?: string;
-    amount?: number;
-  }) {
-    try {
-      const queryParams = new URLSearchParams();
-      if (params) {
-        Object.entries(params).forEach(([key, value]) => {
-          if (value !== undefined) {
-            queryParams.append(key, value.toString());
-          }
-        });
-      }
-
-      const response = await fetch(
-        `${this.baseUrl}/transaction?${queryParams.toString()}`,
-        {
-          method: 'GET',
-          headers: {
-            Authorization: `Bearer ${this.secretKey}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-      return data;
-    } catch (error) {
-      console.error('Paystack list transactions error:', error);
       throw error;
     }
   }

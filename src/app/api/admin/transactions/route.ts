@@ -1,31 +1,13 @@
 // app/api/admin/transactions/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import connectDB from '@/lib/mongodb';
-import mongoose from 'mongoose';
-
-// Transaction schema (create this in your models file)
-const TransactionSchema = new mongoose.Schema({
-  organizationId: String,
-  organizationName: String,
-  reference: String,
-  bundleId: String,
-  bundleName: String,
-  amount: Number,
-  units: Number,
-  status: String,
-  createdAt: { type: Date, default: Date.now },
-});
-
-const Transaction = mongoose.models.Transaction || 
-  mongoose.model('Transaction', TransactionSchema);
+import { Transaction } from '@/lib/models';
+import { isSuperAdmin } from '@/lib/super-admin';
 
 export async function GET(request: NextRequest) {
   try {
-    const session = await getServerSession();
-    const superAdminEmails = ['admin@yourcompany.com'];
-    
-    if (!session || !superAdminEmails.includes(session.user?.email || '')) {
+    const isAdmin = await isSuperAdmin();
+    if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
 
@@ -36,10 +18,9 @@ export async function GET(request: NextRequest) {
       .limit(100)
       .lean();
 
-    return NextResponse.json(transactions);
+    return NextResponse.json(transactions.map(t => ({...t, _id: t._id.toString() })));
   } catch (error: any) {
     console.error('Get transactions error:', error);
     return NextResponse.json({ error: error.message }, { status: 500 });
   }
 }
-
