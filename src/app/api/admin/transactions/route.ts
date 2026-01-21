@@ -6,7 +6,8 @@ import { isSuperAdmin } from '@/lib/super-admin';
 
 export async function GET(request: NextRequest) {
   try {
-    const isAdmin = await isSuperAdmin();
+    const uid = request.headers.get('X-User-UID');
+    const isAdmin = await isSuperAdmin(uid);
     if (!isAdmin) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 403 });
     }
