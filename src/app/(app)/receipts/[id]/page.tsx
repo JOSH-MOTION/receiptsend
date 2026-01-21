@@ -10,7 +10,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
+import { Card, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { format, fromUnixTime } from 'date-fns';
 import Link from 'next/link';
@@ -50,6 +50,8 @@ export default function ReceiptDetailsPage() {
   const { toast } = useToast();
   const [isSendingEmail, setIsSendingEmail] = useState(false);
   const [isSendingSMS, setIsSendingSMS] = useState(false);
+  const [isClient, setIsClient] = useState(false);
+
 
   const receiptId = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -66,8 +68,11 @@ export default function ReceiptDetailsPage() {
   const { data: orgData, isLoading: isOrgLoading } = useDoc(orgRef);
   
   useEffect(() => {
-    if (error) {
-      console.error('Error loading receipt:', error);
+    setIsClient(true);
+  }, []);
+  
+  useEffect(() => {
+    if (!isUserLoading && !isReceiptLoading && error) {
       toast({
         title: 'Permission Error',
         description: 'You do not have permission to view this receipt.',
@@ -75,7 +80,7 @@ export default function ReceiptDetailsPage() {
       });
       router.push('/receipts');
     }
-  }, [error, router, toast]);
+  }, [error, isUserLoading, isReceiptLoading, router, toast]);
 
   const handlePrint = () => {
     window.print();
@@ -111,7 +116,7 @@ export default function ReceiptDetailsPage() {
         toast({
           title: 'Email Sent!',
           description: `Receipt has been resent to ${receipt.customerEmail}`,
-          className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
+          className: "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-900",
         });
       } else {
         toast({
@@ -185,7 +190,7 @@ export default function ReceiptDetailsPage() {
   const taxAmount = (subtotalAfterDiscount * (receipt.tax || 0)) / 100;
 
   return (
-    <div className="container mx-auto py-8 max-w-4xl">
+    <div className="container mx-auto py-8 max-w-4xl print-container">
       {/* Header - Don't print */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 print:hidden gap-4">
         <Button variant="ghost" asChild>
@@ -199,7 +204,7 @@ export default function ReceiptDetailsPage() {
             variant="outline" 
             size="sm" 
             onClick={handleResendEmail}
-            disabled={isSendingEmail}
+            disabled={isSendingEmail || !receipt.deliveryChannels?.includes("email")}
             className="flex-1 sm:flex-initial"
           >
             {isSendingEmail ? (
@@ -219,7 +224,7 @@ export default function ReceiptDetailsPage() {
               variant="outline" 
               size="sm" 
               onClick={handleResendSMS}
-              disabled={isSendingSMS}
+              disabled={isSendingSMS || !receipt.deliveryChannels?.includes("sms")}
               className="flex-1 sm:flex-initial"
             >
               {isSendingSMS ? (
@@ -241,60 +246,76 @@ export default function ReceiptDetailsPage() {
           </Button>
         </div>
       </div>
+      
+       {isClient && (
+        <div className="text-center text-sm text-muted-foreground mb-4 print:hidden">
+          {receipt.deliveryChannels?.includes("email") && `Sent via Email on ${formatTimestamp(receipt.createdAt, "MMMM dd, yyyy, hh:mm a")}`}
+          {receipt.deliveryChannels?.includes("sms") && `Sent via SMS on ${formatTimestamp(receipt.createdAt, "MMMM dd, yyyy, hh:mm a")}`}
+        </div>
+       )}
 
       {/* Receipt Card */}
-      <Card className="p-6 sm:p-8 md:p-12 shadow-2xl">
+      <Card className="p-6 sm:p-8 md:p-12 shadow-2xl bg-white dark:bg-black border border-red-200 dark:border-red-900">
           {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start pb-8 border-b mb-8">
+          <div className="flex flex-col sm:flex-row justify-between items-start pb-8 mb-8">
             <div className='mb-6 sm:mb-0'>
-                <div className="flex items-center gap-4 mb-4">
-                    <div className="w-12 h-12 bg-primary rounded-full" />
-                    <h1 className="text-2xl font-bold">{orgData?.companyName || 'Business Name'}</h1>
-                </div>
-                <p className="text-muted-foreground text-sm">{orgData?.address}</p>
-                <p className="text-muted-foreground text-sm">{orgData?.phoneNumber}</p>
+                <h1 className="text-3xl font-bold text-red-600">{orgData?.companyName || 'Business Name'}</h1>
+                <p className="text-muted-foreground text-sm max-w-xs mt-2">{orgData?.address}</p>
             </div>
             <div className="text-left sm:text-right">
-                <h2 className="text-3xl md:text-4xl font-bold text-primary tracking-wider">RECEIPT</h2>
+                <h2 className="text-5xl font-extrabold text-gray-800 dark:text-gray-200 tracking-wider">INVOICE</h2>
                 <p className="text-muted-foreground mt-2">
-                    Date: {formatTimestamp(receipt.createdAt)}
-                </p>
-                <p className="text-muted-foreground">
-                    Receipt #: {receipt.receiptNumber}
+                    Invoice #: {receipt.receiptNumber}
                 </p>
             </div>
           </div>
+          
+          <Separator className="my-8 border-red-200 dark:border-red-900" />
 
-          {/* Customer Info */}
-          <div className="pb-8">
-            <h3 className="font-semibold mb-2 text-gray-600 dark:text-gray-300">Billed To:</h3>
-            <p className="font-medium">{receipt.customerName}</p>
-            <p className="text-muted-foreground text-sm">{receipt.customerEmail}</p>
-            {receipt.customerPhoneNumber && (
-                <p className="text-muted-foreground text-sm">{receipt.customerPhoneNumber}</p>
-            )}
+
+          {/* Customer Info & Dates */}
+           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
+              <div>
+                  <h3 className="font-semibold mb-2 text-gray-500 dark:text-gray-400">BILLED TO</h3>
+                  <p className="font-medium text-gray-800 dark:text-gray-200">{receipt.customerName}</p>
+                  <p className="text-muted-foreground text-sm">{receipt.customerEmail}</p>
+                  {receipt.customerPhoneNumber && (
+                      <p className="text-muted-foreground text-sm">{receipt.customerPhoneNumber}</p>
+                  )}
+              </div>
+              <div className="text-left md:text-right">
+                  <div className="mb-2">
+                      <span className="font-semibold text-gray-500 dark:text-gray-400">Invoice Date: </span>
+                      <span className="text-gray-800 dark:text-gray-200">{formatTimestamp(receipt.createdAt)}</span>
+                  </div>
+                  <div>
+                      <span className="font-semibold text-gray-500 dark:text-gray-400">Due Date: </span>
+                       <span className="text-gray-800 dark:text-gray-200">{formatTimestamp(receipt.createdAt)}</span>
+                  </div>
+              </div>
           </div>
 
+
           {/* Items Table */}
-          <div className="mb-8">
+          <div className="mb-8 overflow-x-auto">
             <table className="w-full">
-                <thead className="bg-primary text-primary-foreground">
+                <thead className="border-b-2 border-t-2 border-red-200 dark:border-red-900">
                     <tr>
-                        <th className="text-left p-3 font-semibold text-sm">ITEM DESCRIPTION</th>
-                        <th className="text-right p-3 font-semibold text-sm hidden sm:table-cell">UNIT PRICE</th>
-                        <th className="text-right p-3 font-semibold text-sm hidden sm:table-cell">QTY</th>
-                        <th className="text-right p-3 font-semibold text-sm">TOTAL</th>
+                        <th className="text-left p-3 font-bold text-red-600 uppercase tracking-wider text-sm">Description</th>
+                        <th className="text-right p-3 font-bold text-red-600 uppercase tracking-wider text-sm hidden sm:table-cell">Unit Cost</th>
+                        <th className="text-right p-3 font-bold text-red-600 uppercase tracking-wider text-sm hidden sm:table-cell">QTY</th>
+                        <th className="text-right p-3 font-bold text-red-600 uppercase tracking-wider text-sm">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     {receipt.items.map((item, index) => (
-                    <tr key={index} className="border-b bg-secondary/20">
+                    <tr key={index} className="border-b border-red-100 dark:border-red-900/50">
                         <td className="p-3">
-                            <p className="font-medium text-sm">{item.name}</p>
+                            <p className="font-medium text-sm text-gray-800 dark:text-gray-200">{item.name}</p>
                         </td>
                         <td className="text-right p-3 text-sm hidden sm:table-cell">${item.price.toFixed(2)}</td>
                         <td className="text-right p-3 text-sm hidden sm:table-cell">{item.quantity}</td>
-                        <td className="text-right p-3 font-medium text-sm">${(item.quantity * item.price).toFixed(2)}</td>
+                        <td className="text-right p-3 font-medium text-sm text-gray-800 dark:text-gray-200">${(item.quantity * item.price).toFixed(2)}</td>
                     </tr>
                     ))}
                 </tbody>
@@ -306,12 +327,12 @@ export default function ReceiptDetailsPage() {
             <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
                 <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium">${subtotal.toFixed(2)}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">${subtotal.toFixed(2)}</span>
                 </div>
                 {receipt.discount && receipt.discount > 0 && (
                 <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount ({receipt.discount}%):</span>
-                    <span className="font-medium text-destructive">-${discountAmount.toFixed(2)}</span>
+                    <span className="font-medium text-red-600">-${discountAmount.toFixed(2)}</span>
                 </div>
                 )}
                 {receipt.tax && receipt.tax > 0 && (
@@ -320,8 +341,8 @@ export default function ReceiptDetailsPage() {
                     <span className="font-medium">+${taxAmount.toFixed(2)}</span>
                 </div>
                 )}
-                <div className="bg-primary text-primary-foreground p-3 flex justify-between items-center mt-4">
-                    <span className="text-lg font-bold">TOTAL DUE</span>
+                <div className="bg-red-600 text-white p-4 flex justify-between items-center rounded-lg mt-4">
+                    <span className="text-lg font-bold">Total</span>
                     <span className="text-xl font-bold">${receipt.totalAmount.toFixed(2)}</span>
                 </div>
             </div>
@@ -329,26 +350,9 @@ export default function ReceiptDetailsPage() {
 
           {/* Note & Footer */}
           <div>
-            <div className="text-center mb-12">
-              <p className="text-lg font-medium">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
-            </div>
-
-            <Separator className="my-8" />
-            
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-xs text-muted-foreground">
-                <div>
-                    <h4 className="font-semibold mb-2 text-foreground">Questions?</h4>
-                    <p>Email: {orgData?.email || 'N/A'}</p>
-                    <p>Call: {orgData?.phoneNumber || 'N/A'}</p>
-                </div>
-                <div>
-                    <h4 className="font-semibold mb-2 text-foreground">Payment Info:</h4>
-                    <p>This is a receipt, not an invoice. No payment is due on this document.</p>
-                </div>
-                <div>
-                    <h4 className="font-semibold mb-2 text-foreground">Terms & Conditions:</h4>
-                    <p>All sales are final. Please contact us with any issues within 30 days.</p>
-                </div>
+            <div className="mb-8">
+              <h4 className="font-bold text-red-600 mb-2">NOTES</h4>
+              <p className="text-sm text-muted-foreground">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
             </div>
           </div>
       </Card>
@@ -368,11 +372,22 @@ export default function ReceiptDetailsPage() {
             left: 0;
             top: 0;
             width: 100%;
-            padding: 2rem;
+            padding: 0;
+            margin: 0;
             border: none;
             box-shadow: none;
+            background-color: white !important;
           }
-          .print\:hidden {
+           .print-container .dark\\:bg-black {
+             background-color: white !important;
+           }
+           .print-container .dark\\:text-gray-200 {
+             color: #1f2937 !important; /* gray-800 */
+           }
+           .print-container .dark\\:border-red-900, .print-container .dark\\:border-red-900\\/50 {
+             border-color: #fecaca !important; /* red-200 */
+           }
+          .print\\:hidden {
             display: none !important;
           }
         }
@@ -380,3 +395,5 @@ export default function ReceiptDetailsPage() {
     </div>
   );
 }
+
+    
