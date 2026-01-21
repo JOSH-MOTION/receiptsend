@@ -3,9 +3,9 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Loader2, Save } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Loader2, Save, Send } from "lucide-react";
 import Link from "next/link";
-import { collection, addDoc, serverTimestamp, doc, setDoc } from "firebase/firestore";
+import { collection, addDoc, serverTimestamp, doc, setDoc, DocumentReference } from "firebase/firestore";
 import { useUser, useFirebase, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 
 import { Button } from "@/components/ui/button";
@@ -31,6 +31,10 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
+
+// New import for the Genkit flow
+import { sendReceipt, type SendReceiptInput } from '@/ai/flows/send-receipt-flow';
+
 
 interface Item {
   name: string;
@@ -146,7 +150,7 @@ export default function NewReceiptPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user || !firestore) return;
+    if (!user || !firestore || !orgData) return;
     
     if (!customerName || !customerEmail) {
       toast({
@@ -167,10 +171,11 @@ export default function NewReceiptPage() {
     }
 
     setIsSubmitting(true);
-
+    
+    let newReceiptRef: DocumentReference | null = null;
     try {
       const receiptNumber = await generateReceiptNumber();
-      const receiptsCol = collection(firestore, `organizations/${user.uid}/receipts`);
+      const creationDate = new Date();
       
       const receiptData = {
         organizationId: user.uid,
@@ -183,10 +188,12 @@ export default function NewReceiptPage() {
         tax,
         totalAmount: total,
         thankYouMessage,
-        createdAt: serverTimestamp(),
+        createdAt: creationDate, // Use a concrete date for the flow
       };
       
-      await addDoc(receiptsCol, receiptData);
+      const receiptsCol = collection(firestore, `organizations/${user.uid}/receipts`);
+      // Save with server timestamp for accurate Firestore sorting/querying
+      newReceiptRef = await addDoc(receiptsCol, { ...receiptData, createdAt: serverTimestamp() });
       
       // Also create/update a contact to avoid duplicates
       const contactRef = doc(firestore, `organizations/${user.uid}/contacts`, customerEmail);
@@ -198,14 +205,46 @@ export default function NewReceiptPage() {
         createdAt: serverTimestamp(),
       }, { merge: true });
 
-
       toast({
-        title: "Receipt Created!",
-        description: "Your new receipt has been saved.",
+        title: "Receipt Saved!",
+        description: "Your new receipt has been saved successfully.",
         className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
       });
 
-      router.push("/receipts");
+      // If sendEmail is checked, call the flow
+      if (sendEmail) {
+        toast({
+            title: "Sending Email...",
+            description: `Preparing to send receipt to ${customerEmail}.`,
+        });
+
+        const flowInput: SendReceiptInput = {
+            receipt: { ...receiptData, createdAt: creationDate.toISOString() },
+            organization: {
+                companyName: orgData.companyName,
+                email: orgData.email,
+                address: orgData.address,
+            }
+        };
+
+        const result = await sendReceipt(flowInput);
+
+        if (result.success) {
+            toast({
+                title: "Receipt Sent!",
+                description: result.message,
+                className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
+            });
+        } else {
+             toast({
+                title: "Email Failed",
+                description: result.message,
+                variant: "destructive",
+            });
+        }
+      }
+
+      router.push(`/receipts/${newReceiptRef.id}`);
     } catch (error) {
       console.error(error);
       toast({
@@ -213,7 +252,6 @@ export default function NewReceiptPage() {
         description: "Failed to create receipt. Please try again.",
         variant: "destructive",
       });
-    } finally {
       setIsSubmitting(false);
     }
   };
@@ -232,7 +270,7 @@ export default function NewReceiptPage() {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               Create Receipt
             </h1>
-            <p className="text-muted-foreground mt-2">Generate and save a new digital receipt</p>
+            <p className="text-muted-foreground mt-2">Generate and send a new digital receipt</p>
           </div>
         </div>
 
@@ -429,11 +467,10 @@ export default function NewReceiptPage() {
                     id="sendEmail"
                     checked={sendEmail}
                     onCheckedChange={(checked) => setSendEmail(checked as boolean)}
-                    disabled 
                     className="border-green-500 data-[state=checked]:bg-green-600"
                   />
-                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer text-muted-foreground">
-                    Send receipt via email (Feature in development)
+                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
+                    Send receipt via email
                   </Label>
                 </div>
                 <div className="flex items-center gap-2">
@@ -441,7 +478,7 @@ export default function NewReceiptPage() {
                     id="sendSMS"
                     checked={sendSMS}
                     onCheckedChange={(checked) => setSendSMS(checked as boolean)}
-                    disabled={!customerPhone || true} 
+                    disabled={!customerPhone}
                     className="border-green-500 data-[state=checked]:bg-green-600"
                   />
                   <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer text-muted-foreground">
@@ -529,12 +566,12 @@ export default function NewReceiptPage() {
               {isSubmitting ? (
                 <>
                   <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Creating...
+                  Saving...
                 </>
               ) : (
                 <>
-                  <Save className="h-4 w-4 mr-2" />
-                  Save Receipt
+                  <Send className="h-4 w-4 mr-2" />
+                  Create & Send Receipt
                 </>
               )}
             </Button>
@@ -544,5 +581,7 @@ export default function NewReceiptPage() {
     </div>
   );
 }
+
+    
 
     
