@@ -3,7 +3,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Send, Loader2, Save } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Loader2, Save } from "lucide-react";
 import Link from "next/link";
 import { collection, addDoc, serverTimestamp, doc, setDoc } from "firebase/firestore";
 import { useUser, useFirebase, useCollection, useDoc, useMemoFirebase } from "@/firebase";
@@ -70,7 +70,10 @@ export default function NewReceiptPage() {
 
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
+  const [customerPhone, setCustomerPhone] = useState("");
+
   const [sendEmail, setSendEmail] = useState(true);
+  const [sendSMS, setSendSMS] = useState(false);
   
   const [items, setItems] = useState<Item[]>([
     { name: "", quantity: 1, price: 0 },
@@ -117,6 +120,7 @@ export default function NewReceiptPage() {
       setNewTemplateName("");
       setIsSaveTemplateOpen(false);
     } catch (error) {
+      console.error(error);
       toast({ title: "Error", description: "Could not save template.", variant: "destructive" });
     } finally {
       setIsSavingTemplate(false);
@@ -168,18 +172,21 @@ export default function NewReceiptPage() {
       const receiptNumber = await generateReceiptNumber();
       const receiptsCol = collection(firestore, `organizations/${user.uid}/receipts`);
       
-      await addDoc(receiptsCol, {
+      const receiptData = {
         organizationId: user.uid,
         receiptNumber,
         customerName,
         customerEmail,
+        customerPhoneNumber: customerPhone || null,
         items,
         discount,
         tax,
         totalAmount: total,
         thankYouMessage,
         createdAt: serverTimestamp(),
-      });
+      };
+      
+      await addDoc(receiptsCol, receiptData);
       
       // Also create/update a contact to avoid duplicates
       const contactRef = doc(firestore, `organizations/${user.uid}/contacts`, customerEmail);
@@ -187,6 +194,7 @@ export default function NewReceiptPage() {
         organizationId: user.uid,
         name: customerName,
         email: customerEmail,
+        phoneNumber: customerPhone || null,
         createdAt: serverTimestamp(),
       }, { merge: true });
 
@@ -260,6 +268,19 @@ export default function NewReceiptPage() {
                   className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                 />
               </div>
+
+               <div className="space-y-2">
+                <Label htmlFor="customerPhone">Phone Number (Optional)</Label>
+                <Input
+                  id="customerPhone"
+                  type="tel"
+                  placeholder="+1 (555) 123-4567"
+                  value={customerPhone}
+                  onChange={(e) => setCustomerPhone(e.target.value)}
+                  className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
+                />
+              </div>
+
             </CardContent>
           </Card>
           
@@ -333,8 +354,8 @@ export default function NewReceiptPage() {
           {/* Message & Delivery */}
           <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
             <CardHeader>
-              <CardTitle>Message</CardTitle>
-              <CardDescription>Customize the thank you message for this receipt.</CardDescription>
+              <CardTitle>Message & Delivery</CardTitle>
+              <CardDescription>Customize the thank you message and choose delivery channels.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -408,10 +429,23 @@ export default function NewReceiptPage() {
                     id="sendEmail"
                     checked={sendEmail}
                     onCheckedChange={(checked) => setSendEmail(checked as boolean)}
+                    disabled 
                     className="border-green-500 data-[state=checked]:bg-green-600"
                   />
-                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
-                    Send receipt via email (Feature disabled)
+                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer text-muted-foreground">
+                    Send receipt via email (Feature in development)
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="sendSMS"
+                    checked={sendSMS}
+                    onCheckedChange={(checked) => setSendSMS(checked as boolean)}
+                    disabled={!customerPhone || true} 
+                    className="border-green-500 data-[state=checked]:bg-green-600"
+                  />
+                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer text-muted-foreground">
+                    Send receipt via SMS (Feature in development)
                   </Label>
                 </div>
               </div>
@@ -499,8 +533,8 @@ export default function NewReceiptPage() {
                 </>
               ) : (
                 <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Create Receipt
+                  <Save className="h-4 w-4 mr-2" />
+                  Save Receipt
                 </>
               )}
             </Button>
