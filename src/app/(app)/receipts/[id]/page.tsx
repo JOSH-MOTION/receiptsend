@@ -313,9 +313,9 @@ export default function ReceiptDetailsPage() {
                         <td className="p-3">
                             <p className="font-medium text-sm text-gray-800 dark:text-gray-200">{item.name}</p>
                         </td>
-                        <td className="text-right p-3 text-sm hidden sm:table-cell">${item.price.toFixed(2)}</td>
+                        <td className="text-right p-3 text-sm hidden sm:table-cell">GH₵{item.price.toFixed(2)}</td>
                         <td className="text-right p-3 text-sm hidden sm:table-cell">{item.quantity}</td>
-                        <td className="text-right p-3 font-medium text-sm text-gray-800 dark:text-gray-200">${(item.quantity * item.price).toFixed(2)}</td>
+                        <td className="text-right p-3 font-medium text-sm text-gray-800 dark:text-gray-200">GH₵{(item.quantity * item.price).toFixed(2)}</td>
                     </tr>
                     ))}
                 </tbody>
@@ -327,23 +327,23 @@ export default function ReceiptDetailsPage() {
             <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
                 <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">${subtotal.toFixed(2)}</span>
+                    <span className="font-medium text-gray-800 dark:text-gray-200">GH₵{subtotal.toFixed(2)}</span>
                 </div>
                 {receipt.discount && receipt.discount > 0 && (
                 <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount ({receipt.discount}%):</span>
-                    <span className="font-medium text-red-600">-${discountAmount.toFixed(2)}</span>
+                    <span className="font-medium text-red-600">-GH₵{discountAmount.toFixed(2)}</span>
                 </div>
                 )}
                 {receipt.tax && receipt.tax > 0 && (
                 <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Tax ({receipt.tax}%):</span>
-                    <span className="font-medium">+${taxAmount.toFixed(2)}</span>
+                    <span className="font-medium">+GH₵{taxAmount.toFixed(2)}</span>
                 </div>
                 )}
                 <div className="bg-red-600 text-white p-4 flex justify-between items-center rounded-lg mt-4">
                     <span className="text-lg font-bold">Total</span>
-                    <span className="text-xl font-bold">${receipt.totalAmount.toFixed(2)}</span>
+                    <span className="text-xl font-bold">GH₵{receipt.totalAmount.toFixed(2)}</span>
                 </div>
             </div>
           </div>
@@ -395,5 +395,3 @@ export default function ReceiptDetailsPage() {
     </div>
   );
 }
-
-    

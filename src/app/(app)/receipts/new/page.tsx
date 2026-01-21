@@ -535,27 +535,27 @@ export default function NewReceiptPage() {
               <div className="pt-4 border-t space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
-                  <span>${subtotal.toFixed(2)}</span>
+                  <span>GH₵{subtotal.toFixed(2)}</span>
                 </div>
                 {discount > 0 && (
                   <div className="flex justify-between text-sm text-destructive">
                     <span>Discount ({discount}%)</span>
-                    <span>-${discountAmount.toFixed(2)}</span>
+                    <span>-GH₵{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
                  <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal after discount</span>
-                  <span>${subtotalAfterDiscount.toFixed(2)}</span>
+                  <span>GH₵{subtotalAfterDiscount.toFixed(2)}</span>
                 </div>
                 {tax > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Tax ({tax}%)</span>
-                    <span>+${taxAmount.toFixed(2)}</span>
+                    <span>+GH₵{taxAmount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-xl font-bold pt-2 border-t">
                   <span>Total</span>
-                  <span className="text-primary">${total.toFixed(2)}</span>
+                  <span className="text-primary">GH₵{total.toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>

@@ -201,7 +201,7 @@ export default function ReceiptsPage() {
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-emerald-600">${totalRevenue.toFixed(2)}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-emerald-600">GH₵{totalRevenue.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground mt-2">From selected receipts</p>
             </CardContent>
           </Card>
@@ -212,7 +212,7 @@ export default function ReceiptsPage() {
             </CardHeader>
             <CardContent>
               <div className="text-2xl sm:text-3xl font-bold text-teal-600">
-                ${filteredReceipts.length > 0 ? (totalRevenue / filteredReceipts.length).toFixed(2) : "0.00"}
+              GH₵{filteredReceipts.length > 0 ? (totalRevenue / filteredReceipts.length).toFixed(2) : "0.00"}
               </div>
               <p className="text-xs text-muted-foreground mt-2">Per transaction</p>
             </CardContent>
@@ -220,7 +220,7 @@ export default function ReceiptsPage() {
         </div>
 
         {/* Filters */}
-        <Card className="backdrop-blur-xl bg-white/60 dark:bg-black/30 border-green-200 dark:border-green-900 shadow-2xl">
+        <Card className="backdrop-blur-xl bg-white/60 dark:bg-black/30 border-red-200 dark:border-red-900 shadow-2xl">
           <CardHeader>
             <CardTitle className="text-xl sm:text-2xl">All Receipts</CardTitle>
             <CardDescription className="text-sm">Search and filter your receipt history</CardDescription>
@@ -234,11 +234,11 @@ export default function ReceiptsPage() {
                   placeholder="Search by customer, email, or receipt number..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border-green-200 dark:border-green-900 focus-visible:ring-green-500"
+                  className="pl-10 border-red-200 dark:border-red-900 focus-visible:ring-red-500"
                 />
               </div>
               <Select value={filterChannel} onValueChange={setFilterChannel}>
-                <SelectTrigger className="w-full sm:w-48 border-green-200 dark:border-green-900">
+                <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-900">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by channel" />
                 </SelectTrigger>
@@ -251,12 +251,12 @@ export default function ReceiptsPage() {
             </div>
 
             {/* Receipts Table - Responsive with Horizontal Scroll */}
-            <div className="rounded-lg border border-green-200 dark:border-green-900 overflow-hidden">
+            <div className="rounded-lg border border-red-200 dark:border-red-900 overflow-hidden">
               <div className="overflow-x-auto">
                 <div className="min-w-[600px]">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-green-50 dark:bg-green-950/30 hover:bg-green-50 dark:hover:bg-green-950/30 border-green-200 dark:border-green-900">
+                      <TableRow className="bg-red-50 dark:bg-red-950/30 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900">
                         <TableHead className="font-semibold">Receipt #</TableHead>
                         <TableHead className="font-semibold">Customer</TableHead>
                         <TableHead className="font-semibold hidden md:table-cell">Channel</TableHead>
@@ -268,22 +268,22 @@ export default function ReceiptsPage() {
                     <TableBody>
                       {isLoading ? (
                         [...Array(8)].map((_, i) => (
-                          <TableRow key={i} className="animate-pulse border-green-100 dark:border-green-900">
-                            <TableCell><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-24" /></TableCell>
-                            <TableCell><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-32" /></TableCell>
-                            <TableCell className="hidden md:table-cell"><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-20" /></TableCell>
-                            <TableCell className="hidden lg:table-cell"><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-24" /></TableCell>
-                            <TableCell className="text-right"><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-16 ml-auto" /></TableCell>
-                            <TableCell className="text-right"><div className="h-4 bg-green-200 dark:bg-green-900 rounded w-8 ml-auto" /></TableCell>
+                          <TableRow key={i} className="animate-pulse border-red-100 dark:border-red-900">
+                            <TableCell><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-24" /></TableCell>
+                            <TableCell><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-32" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-20" /></TableCell>
+                            <TableCell className="hidden lg:table-cell"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-24" /></TableCell>
+                            <TableCell className="text-right"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-16 ml-auto" /></TableCell>
+                            <TableCell className="text-right"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-8 ml-auto" /></TableCell>
                           </TableRow>
                         ))
                       ) : filteredReceipts.length > 0 ? (
                         filteredReceipts.map((receipt) => (
                           <TableRow
                             key={receipt.id}
-                            className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors border-green-100 dark:border-green-900"
+                            className="hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors border-red-100 dark:border-red-900"
                           >
-                            <TableCell className="font-mono font-medium text-green-700 dark:text-green-400 text-sm">
+                            <TableCell className="font-mono font-medium text-red-700 dark:text-red-400 text-sm">
                               {receipt.receiptNumber}
                             </TableCell>
                             <TableCell>
@@ -293,7 +293,7 @@ export default function ReceiptsPage() {
                             <TableCell className="hidden md:table-cell">
                               <div className="flex gap-2 flex-wrap">
                                 {receipt.deliveryChannels?.includes("email") && (
-                                  <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs">
+                                  <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-xs">
                                     <Mail className="h-3 w-3 mr-1" />
                                     Email
                                   </Badge>
@@ -313,12 +313,12 @@ export default function ReceiptsPage() {
                               {isClient ? formatTimestamp(receipt.createdAt) : "..."}
                             </TableCell>
                             <TableCell className="text-right font-semibold text-sm">
-                              ${receipt.totalAmount.toFixed(2)}
+                            GH₵{receipt.totalAmount.toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-green-100 dark:hover:bg-green-900/50">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-100 dark:hover:bg-red-900/50">
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
@@ -348,8 +348,8 @@ export default function ReceiptsPage() {
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-12">
                             <div className="flex flex-col items-center gap-3">
-                              <div className="p-4 rounded-full bg-green-100 dark:bg-green-900/30">
-                                <FileText className="h-8 w-8 text-green-600" />
+                              <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30">
+                                <FileText className="h-8 w-8 text-red-600" />
                               </div>
                               <div>
                                 <p className="text-lg font-semibold">No receipts found</p>
@@ -360,7 +360,7 @@ export default function ReceiptsPage() {
                                 </p>
                               </div>
                               {!searchQuery && filterChannel === "all" && (
-                                <Button asChild className="mt-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                                <Button asChild className="mt-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700">
                                   <Link href="/receipts/new">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Create Receipt
