@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -20,14 +21,18 @@ import { smsPricingBundles, formatCurrency } from "@/lib/sms-pricing-updated";
 import { useUser } from "@/firebase";
 
 interface Organization {
-  companyName: string;
-  email: string;
+  _id?: string;
+  companyName?: string;
+  email?: string;
   phoneNumber?: string;
   address?: string;
   primaryColor?: string;
   secondaryColor?: string;
   smsBalance?: number;
   smsSenderId?: string;
+  totalSpent?: number;
+  totalPurchased?: number;
+  createdAt?: string;
 }
 
 export default function SettingsPage() {
@@ -36,7 +41,7 @@ export default function SettingsPage() {
   const searchParams = useSearchParams();
   const { toast } = useToast();
   
-  const [organization, setOrganization] = useState<Partial<Organization>>({});
+  const [organization, setOrganization] = useState<Organization>({});
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
@@ -91,13 +96,23 @@ export default function SettingsPage() {
     if (!user) return;
     setIsSaving(true);
     try {
+      // Sanitize data before sending: remove immutable or server-managed fields.
+      const { 
+        _id, 
+        createdAt, 
+        smsBalance, 
+        totalSpent, 
+        totalPurchased, 
+        ...updateData 
+      } = organization;
+
       const response = await fetch("/api/organization", {
         method: "PUT",
         headers: { 
           "Content-Type": "application/json",
           'X-User-UID': user.uid
         },
-        body: JSON.stringify(organization),
+        body: JSON.stringify(updateData),
       });
 
       if (response.ok) {
@@ -282,3 +297,5 @@ export default function SettingsPage() {
     </div>
   );
 }
+
+    
