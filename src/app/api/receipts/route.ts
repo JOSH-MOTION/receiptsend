@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
 import mongoose from 'mongoose';
-import { Receipt, Contact, Organization, IReceipt, User, SmsLog } from '@/lib/models';
+import { Receipt, Contact, Organization, IReceipt, SmsLog } from '@/lib/models';
 import { Resend } from 'resend';
 import { quickSMSService } from '@/lib/quicksms';
 import connectDB from '@/lib/mongodb';
