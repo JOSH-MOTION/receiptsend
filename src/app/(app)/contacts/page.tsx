@@ -53,7 +53,7 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import Link from "next/link"
-import { useSession } from 'next-auth/react';
+import { useUser } from "@/firebase";
 import { format } from "date-fns";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -67,7 +67,7 @@ interface Contact {
 }
 
 export default function ContactsPage() {
-    const { data: session } = useSession();
+    const { user } = useUser();
     const { toast } = useToast();
     const [contacts, setContacts] = useState<Contact[]>([]);
     const [isLoading, setIsLoading] = useState(true);
@@ -76,14 +76,17 @@ export default function ContactsPage() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     useEffect(() => {
-        if (session) {
+        if (user) {
             fetchContacts();
         }
-    }, [session]);
+    }, [user]);
 
     const fetchContacts = async () => {
+        if (!user) return;
         try {
-            const response = await fetch('/api/contacts');
+            const response = await fetch('/api/contacts', {
+                headers: { 'X-User-UID': user.uid }
+            });
             if (response.ok) {
                 const data = await response.json();
                 setContacts(data);
@@ -112,12 +115,13 @@ export default function ContactsPage() {
     };
 
     const handleDeleteConfirm = async () => {
-        if (!contactToDelete) return;
+        if (!contactToDelete || !user) return;
 
         setIsDeleting(true);
         try {
             const response = await fetch(`/api/contacts?id=${contactToDelete._id}`, {
                 method: 'DELETE',
+                headers: { 'X-User-UID': user.uid }
             });
 
             if (response.ok) {

@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import mongoose from 'mongoose';
 import { Receipt } from '@/lib/models';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 const MONGODB_URI = process.env.MONGODB_URI;
 
@@ -15,13 +13,10 @@ async function connectDB() {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const organizationId = (session.user as any).organizationId;
 
     await connectDB();
 

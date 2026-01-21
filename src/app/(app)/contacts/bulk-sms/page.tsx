@@ -45,6 +45,7 @@ import {
 import { Textarea } from '@/components/ui/textarea';
 import { useToast } from '@/hooks/use-toast';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { useUser } from '@/firebase';
 
 interface Contact {
   _id: string;
@@ -61,6 +62,7 @@ interface OrgSettings {
 export default function BulkSmsPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useUser();
 
   const [orgSettings, setOrgSettings] = useState<OrgSettings | null>(null);
   const [contacts, setContacts] = useState<Contact[]>([]);
@@ -75,10 +77,11 @@ export default function BulkSmsPage() {
 
   useEffect(() => {
     async function fetchData() {
+      if (!user) return;
       try {
         const [orgRes, contactsRes] = await Promise.all([
-          fetch('/api/organization'),
-          fetch('/api/contacts'),
+          fetch('/api/organization', { headers: { 'X-User-UID': user.uid } }),
+          fetch('/api/contacts', { headers: { 'X-User-UID': user.uid } }),
         ]);
 
         if (orgRes.ok) {
@@ -101,8 +104,8 @@ export default function BulkSmsPage() {
         setIsLoading(false);
       }
     }
-    fetchData();
-  }, [toast]);
+    if (user) fetchData();
+  }, [toast, user]);
 
   const allRecipients = useMemo(() => {
     const numbersFromContacts = contacts
@@ -126,6 +129,8 @@ export default function BulkSmsPage() {
   };
 
   const handleSendMessage = async () => {
+    if (!user) return;
+
     if (!orgSettings?.smsSenderId) {
       toast({
         title: 'Missing Sender ID',
@@ -167,7 +172,7 @@ export default function BulkSmsPage() {
     try {
       const response = await fetch('/api/contacts/bulk-sms', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-UID': user.uid },
         body: JSON.stringify({ message, recipients: allRecipients }),
       });
 

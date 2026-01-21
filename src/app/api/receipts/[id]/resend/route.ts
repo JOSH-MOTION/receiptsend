@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import mongoose from 'mongoose';
 import { Receipt, Organization, SmsLog } from '@/lib/models';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { Resend } from 'resend';
 import { quickSMSService } from '@/lib/quicksms';
 
@@ -21,12 +19,11 @@ export async function POST(
   { params }: { params: { id: string } }
 ) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user || !(session.user as any).organizationId) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const organizationId = (session.user as any).organizationId;
     const { type } = await req.json(); // 'email' or 'sms'
     const { id } = params;
 

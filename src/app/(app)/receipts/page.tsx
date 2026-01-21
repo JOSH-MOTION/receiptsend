@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
+import { useUser } from "@/firebase";
 import { format } from "date-fns";
 import { Plus, Search, Filter, Download, Mail, Smartphone, Eye, Trash2, MoreVertical, FileText } from "lucide-react";
 import Link from "next/link";
@@ -73,7 +73,7 @@ interface Receipt {
 }
 
 export default function ReceiptsPage() {
-  const { data: session } = useSession();
+  const { user } = useUser();
   const { toast } = useToast();
   const [receipts, setReceipts] = useState<Receipt[]>([]);
   const [filteredReceipts, setFilteredReceipts] = useState<Receipt[]>([]);
@@ -90,18 +90,21 @@ export default function ReceiptsPage() {
   }, []);
 
   useEffect(() => {
-    if (session) {
+    if (user) {
       fetchReceipts();
     }
-  }, [session]);
+  }, [user]);
 
   useEffect(() => {
     filterReceipts();
   }, [receipts, searchQuery, filterChannel]);
 
   const fetchReceipts = async () => {
+    if (!user) return;
     try {
-      const response = await fetch('/api/receipts');
+      const response = await fetch('/api/receipts', {
+        headers: { 'X-User-UID': user.uid }
+      });
       if (response.ok) {
         const data: Receipt[] = await response.json();
         setReceipts(data);
@@ -143,12 +146,13 @@ export default function ReceiptsPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!receiptToDelete) return;
+    if (!receiptToDelete || !user) return;
     
     setIsDeleting(true);
     try {
       const response = await fetch(`/api/receipts?id=${receiptToDelete._id}`, {
         method: 'DELETE',
+        headers: { 'X-User-UID': user.uid }
       });
       
       if (response.ok) {

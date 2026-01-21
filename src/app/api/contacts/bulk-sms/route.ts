@@ -1,18 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { Organization, Contact } from '@/lib/models';
 import connectDB from '@/lib/mongodb';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 import { quickSMSService } from '@/lib/quicksms';
 import { SmsLog } from '@/lib/models';
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !(session.user as any).organizationId) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const organizationId = (session.user as any).organizationId;
     
     const { message, recipients } = await req.json();
 

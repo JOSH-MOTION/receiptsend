@@ -1,18 +1,15 @@
 // app/api/sms/send/route.ts
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import { quickSMSService } from '@/lib/quicksms';
 import { Organization, SmsLog } from '@/lib/models';
 import connectDB from '@/lib/mongodb';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
 
 export async function POST(request: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !(session.user as any).organizationId) {
+    const organizationId = request.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const organizationId = (session.user as any).organizationId;
 
     await connectDB();
     const organization = await Organization.findById(organizationId);
