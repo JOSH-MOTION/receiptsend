@@ -216,7 +216,6 @@ export default function NewReceiptPage() {
       toast({
         title: "Receipt Saved!",
         description: "Your new receipt has been saved successfully.",
-        className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
       });
 
       // If sendEmail is checked, call the server action
@@ -244,7 +243,6 @@ export default function NewReceiptPage() {
               toast({
                   title: "Receipt Sent!",
                   description: result.message,
-                  className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
               });
           } else {
               toast({
@@ -277,17 +275,17 @@ export default function NewReceiptPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-8">
+    <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         {/* Header */}
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild className="hover:bg-green-100 dark:hover:bg-green-900/50">
+          <Button variant="ghost" size="icon" asChild>
             <Link href="/receipts">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
           <div>
-            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-bold text-primary">
               Create Receipt
             </h1>
             <p className="text-muted-foreground mt-2">Generate and send a new digital receipt</p>
@@ -296,7 +294,7 @@ export default function NewReceiptPage() {
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Information */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card>
             <CardHeader>
               <CardTitle>Customer Information</CardTitle>
               <CardDescription>Who is this receipt for?</CardDescription>
@@ -310,7 +308,6 @@ export default function NewReceiptPage() {
                   value={customerName}
                   onChange={(e) => setCustomerName(e.target.value)}
                   required
-                  className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                 />
               </div>
               
@@ -323,7 +320,6 @@ export default function NewReceiptPage() {
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   required
-                  className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                 />
               </div>
 
@@ -335,7 +331,6 @@ export default function NewReceiptPage() {
                   placeholder="+1 (555) 123-4567"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
-                  className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                 />
               </div>
 
@@ -343,14 +338,14 @@ export default function NewReceiptPage() {
           </Card>
           
           {/* Items */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card>
             <CardHeader>
               <CardTitle>Items</CardTitle>
               <CardDescription>What was purchased?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {items.map((item, index) => (
-                <div key={index} className="flex gap-4 items-end p-4 rounded-lg border border-green-100 dark:border-green-900 bg-green-50/50 dark:bg-green-950/20">
+                <div key={index} className="flex gap-4 items-end p-4 rounded-lg border bg-secondary/30">
                   <div className="flex-1 space-y-2">
                     <Label htmlFor={`item-name-${index}`}>Item Name</Label>
                     <Input
@@ -358,7 +353,6 @@ export default function NewReceiptPage() {
                       placeholder="Product or service"
                       value={item.name}
                       onChange={(e) => updateItem(index, "name", e.target.value)}
-                      className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                     />
                   </div>
                   <div className="w-24 space-y-2">
@@ -369,7 +363,6 @@ export default function NewReceiptPage() {
                       min="1"
                       value={item.quantity}
                       onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
-                      className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                     />
                   </div>
                   <div className="w-32 space-y-2">
@@ -381,7 +374,6 @@ export default function NewReceiptPage() {
                       step="0.01"
                       value={item.price}
                       onChange={(e) => updateItem(index, "price", parseFloat(e.target.value) || 0)}
-                      className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                     />
                   </div>
                   {items.length > 1 && (
@@ -390,7 +382,7 @@ export default function NewReceiptPage() {
                       variant="ghost"
                       size="icon"
                       onClick={() => removeItem(index)}
-                      className="hover:bg-red-100 hover:text-red-600 dark:hover:bg-red-950"
+                      className="text-destructive hover:bg-destructive/10"
                     >
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -401,7 +393,7 @@ export default function NewReceiptPage() {
                 type="button"
                 variant="outline"
                 onClick={addItem}
-                className="w-full border-green-300 text-green-700 hover:bg-green-50 dark:border-green-800 dark:text-green-400 dark:hover:bg-green-950/50"
+                className="w-full"
               >
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
@@ -410,7 +402,7 @@ export default function NewReceiptPage() {
           </Card>
           
           {/* Message & Delivery */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card>
             <CardHeader>
               <CardTitle>Message & Delivery</CardTitle>
               <CardDescription>Customize the thank you message and choose delivery channels.</CardDescription>
@@ -487,7 +479,6 @@ export default function NewReceiptPage() {
                     id="sendEmail"
                     checked={sendEmail}
                     onCheckedChange={(checked) => setSendEmail(checked as boolean)}
-                    className="border-green-500 data-[state=checked]:bg-green-600"
                   />
                   <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
                     Send receipt via email
@@ -499,10 +490,9 @@ export default function NewReceiptPage() {
                     checked={sendSMS}
                     onCheckedChange={(checked) => setSendSMS(checked as boolean)}
                     disabled={!customerPhone}
-                    className="border-green-500 data-[state=checked]:bg-green-600"
                   />
                   <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">
-                    Send receipt via SMS
+                    Send receipt via SMS (Feature in development)
                   </Label>
                 </div>
               </div>
@@ -511,7 +501,7 @@ export default function NewReceiptPage() {
 
 
           {/* Calculations */}
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card>
             <CardHeader>
               <CardTitle>Summary</CardTitle>
             </CardHeader>
@@ -527,7 +517,6 @@ export default function NewReceiptPage() {
                     placeholder="e.g. 10"
                     value={discount}
                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                    className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                   />
                 </div>
                 <div className="space-y-2">
@@ -539,12 +528,11 @@ export default function NewReceiptPage() {
                     placeholder="e.g. 8.5"
                     value={tax}
                     onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                    className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                   />
                 </div>
               </div>
 
-              <div className="pt-4 border-t border-green-200 dark:border-green-900 space-y-2">
+              <div className="pt-4 border-t space-y-2">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal</span>
                   <span>${subtotal.toFixed(2)}</span>
@@ -565,9 +553,9 @@ export default function NewReceiptPage() {
                     <span>+${taxAmount.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-xl font-bold pt-2 border-t border-green-200 dark:border-green-900">
+                <div className="flex justify-between text-xl font-bold pt-2 border-t">
                   <span>Total</span>
-                  <span className="text-green-600">${total.toFixed(2)}</span>
+                  <span className="text-primary">${total.toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
@@ -579,14 +567,14 @@ export default function NewReceiptPage() {
               type="button"
               variant="outline"
               asChild
-              className="flex-1 border-green-200 dark:border-green-900"
+              className="flex-1"
             >
               <Link href="/receipts">Cancel</Link>
             </Button>
             <Button
               type="submit"
               disabled={isSubmitting}
-              className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg"
+              className="flex-1"
             >
               {isSubmitting ? (
                 <>
@@ -596,7 +584,7 @@ export default function NewReceiptPage() {
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Create & Send Receipt
+                  Save & Send Receipt
                 </>
               )}
             </Button>

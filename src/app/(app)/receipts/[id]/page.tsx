@@ -10,15 +10,8 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardHeader,
-  CardTitle,
-} from '@/components/ui/card';
+import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
-import { Badge } from '@/components/ui/badge';
 import { format, fromUnixTime } from 'date-fns';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
@@ -160,7 +153,7 @@ export default function ReceiptDetailsPage() {
 
   if (isLoading) {
     return (
-      <div className="flex items-center justify-center min-h-screen">
+      <div className="flex items-center justify-center min-h-[calc(100vh-200px)]">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
           <p className="mt-4 text-muted-foreground">Loading receipt...</p>
@@ -172,16 +165,12 @@ export default function ReceiptDetailsPage() {
   if (!receipt) {
     return (
       <div className="container mx-auto py-8 max-w-4xl text-center">
-        <Card>
-          <CardHeader>
-            <CardTitle>Receipt Not Found</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <p>The receipt you are looking for does not exist or you do not have permission to view it.</p>
-            <Button asChild className="mt-4">
+        <Card className="p-8">
+            <CardTitle className="text-2xl">Receipt Not Found</CardTitle>
+            <p className="mt-4">The receipt you are looking for does not exist or you do not have permission to view it.</p>
+            <Button asChild className="mt-6">
               <Link href="/receipts">Back to Receipts</Link>
             </Button>
-          </CardContent>
         </Card>
       </div>
     );
@@ -254,131 +243,114 @@ export default function ReceiptDetailsPage() {
       </div>
 
       {/* Receipt Card */}
-      <Card>
-        <CardHeader className="bg-muted/50">
-          <div className="flex items-start justify-between">
-            <div>
-              <CardTitle className="text-2xl">Receipt</CardTitle>
-              <CardDescription className="mt-2">
-                Receipt #{receipt.receiptNumber}
-              </CardDescription>
-              {receipt.deliveryChannels && receipt.deliveryChannels.length > 0 && (
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
-                  {receipt.deliveryChannels.includes('email') && <div className="flex items-center gap-1.5"><Mail className="h-4 w-4 text-green-600" /><span>Sent via Email</span></div>}
-                  {receipt.deliveryChannels.includes('sms') && <div className="flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-green-600" /><span>Sent via SMS</span></div>}
-                  <span>on {formatTimestamp(receipt.createdAt, 'MMM dd, yyyy, hh:mm a')}</span>
+      <Card className="p-6 sm:p-8 md:p-12 shadow-2xl">
+          {/* Header */}
+          <div className="flex flex-col sm:flex-row justify-between items-start pb-8 border-b mb-8">
+            <div className='mb-6 sm:mb-0'>
+                <div className="flex items-center gap-4 mb-4">
+                    <div className="w-12 h-12 bg-primary rounded-full" />
+                    <h1 className="text-2xl font-bold">{orgData?.companyName || 'Business Name'}</h1>
                 </div>
-              )}
+                <p className="text-muted-foreground text-sm">{orgData?.address}</p>
+                <p className="text-muted-foreground text-sm">{orgData?.phoneNumber}</p>
             </div>
-            <Badge variant="secondary" className="text-sm">
-              Saved
-            </Badge>
-          </div>
-        </CardHeader>
-        <CardContent className="p-6">
-          {/* Date and Customer Info */}
-          <div className="grid md:grid-cols-2 gap-6 mb-6">
-            <div>
-              <h3 className="font-semibold mb-2">Receipt Details</h3>
-              <p className="text-sm text-muted-foreground">
-                <strong>Date:</strong>{' '}
-                {formatTimestamp(receipt.createdAt)}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <strong>Time:</strong>{' '}
-                {formatTimestamp(receipt.createdAt, 'hh:mm a')}
-              </p>
-            </div>
-            <div>
-              <h3 className="font-semibold mb-2">Customer Information</h3>
-              <p className="text-sm text-muted-foreground">
-                <strong>Name:</strong> {receipt.customerName}
-              </p>
-              <p className="text-sm text-muted-foreground">
-                <strong>Email:</strong> {receipt.customerEmail}
-              </p>
-              {receipt.customerPhoneNumber && (
-                <p className="text-sm text-muted-foreground">
-                  <strong>Phone:</strong> {receipt.customerPhoneNumber}
+            <div className="text-left sm:text-right">
+                <h2 className="text-3xl md:text-4xl font-bold text-primary tracking-wider">RECEIPT</h2>
+                <p className="text-muted-foreground mt-2">
+                    Date: {formatTimestamp(receipt.createdAt)}
                 </p>
-              )}
+                <p className="text-muted-foreground">
+                    Receipt #: {receipt.receiptNumber}
+                </p>
             </div>
           </div>
 
-          <Separator className="my-6" />
+          {/* Customer Info */}
+          <div className="pb-8">
+            <h3 className="font-semibold mb-2 text-gray-600 dark:text-gray-300">Billed To:</h3>
+            <p className="font-medium">{receipt.customerName}</p>
+            <p className="text-muted-foreground text-sm">{receipt.customerEmail}</p>
+            {receipt.customerPhoneNumber && (
+                <p className="text-muted-foreground text-sm">{receipt.customerPhoneNumber}</p>
+            )}
+          </div>
 
           {/* Items Table */}
-          <div className="mb-6">
-            <h3 className="font-semibold mb-4">Items / Services</h3>
-            <div className="border rounded-lg overflow-hidden">
-              <table className="w-full">
-                <thead className="bg-muted/50">
-                  <tr>
-                    <th className="text-left p-3 font-medium">Item</th>
-                    <th className="text-center p-3 font-medium">Quantity</th>
-                    <th className="text-right p-3 font-medium">Price</th>
-                    <th className="text-right p-3 font-medium">Total</th>
-                  </tr>
+          <div className="mb-8">
+            <table className="w-full">
+                <thead className="bg-primary text-primary-foreground">
+                    <tr>
+                        <th className="text-left p-3 font-semibold text-sm">ITEM DESCRIPTION</th>
+                        <th className="text-right p-3 font-semibold text-sm hidden sm:table-cell">UNIT PRICE</th>
+                        <th className="text-right p-3 font-semibold text-sm hidden sm:table-cell">QTY</th>
+                        <th className="text-right p-3 font-semibold text-sm">TOTAL</th>
+                    </tr>
                 </thead>
                 <tbody>
-                  {receipt.items.map((item, index) => (
-                    <tr key={index} className="border-t">
-                      <td className="p-3">{item.name}</td>
-                      <td className="text-center p-3">{item.quantity}</td>
-                      <td className="text-right p-3">
-                        ${item.price.toFixed(2)}
-                      </td>
-                      <td className="text-right p-3">
-                        ${(item.quantity * item.price).toFixed(2)}
-                      </td>
+                    {receipt.items.map((item, index) => (
+                    <tr key={index} className="border-b bg-secondary/20">
+                        <td className="p-3">
+                            <p className="font-medium text-sm">{item.name}</p>
+                        </td>
+                        <td className="text-right p-3 text-sm hidden sm:table-cell">${item.price.toFixed(2)}</td>
+                        <td className="text-right p-3 text-sm hidden sm:table-cell">{item.quantity}</td>
+                        <td className="text-right p-3 font-medium text-sm">${(item.quantity * item.price).toFixed(2)}</td>
                     </tr>
-                  ))}
+                    ))}
                 </tbody>
-              </table>
-            </div>
+            </table>
           </div>
-
-          <Separator className="my-6" />
 
           {/* Totals */}
-          <div className="flex justify-end">
-            <div className="w-full md:w-1/2 space-y-2">
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal:</span>
-                <span className="font-medium">${subtotal.toFixed(2)}</span>
-              </div>
-              {receipt.discount && receipt.discount > 0 && (
+          <div className="flex justify-end mb-12">
+            <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Discount ({receipt.discount}%):
-                  </span>
-                  <span className="font-medium text-destructive">
-                    -${discountAmount.toFixed(2)}
-                  </span>
+                    <span className="text-muted-foreground">Subtotal:</span>
+                    <span className="font-medium">${subtotal.toFixed(2)}</span>
                 </div>
-              )}
-              {receipt.tax && receipt.tax > 0 && (
+                {receipt.discount && receipt.discount > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">
-                    Tax ({receipt.tax}%):
-                  </span>
-                  <span className="font-medium">${taxAmount.toFixed(2)}</span>
+                    <span className="text-muted-foreground">Discount ({receipt.discount}%):</span>
+                    <span className="font-medium text-destructive">-${discountAmount.toFixed(2)}</span>
                 </div>
-              )}
-              <Separator className="my-2" />
-              <div className="flex justify-between text-lg font-bold">
-                <span>Total:</span>
-                <span>${receipt.totalAmount.toFixed(2)}</span>
-              </div>
+                )}
+                {receipt.tax && receipt.tax > 0 && (
+                <div className="flex justify-between text-sm">
+                    <span className="text-muted-foreground">Tax ({receipt.tax}%):</span>
+                    <span className="font-medium">+${taxAmount.toFixed(2)}</span>
+                </div>
+                )}
+                <div className="bg-primary text-primary-foreground p-3 flex justify-between items-center mt-4">
+                    <span className="text-lg font-bold">TOTAL DUE</span>
+                    <span className="text-xl font-bold">${receipt.totalAmount.toFixed(2)}</span>
+                </div>
             </div>
           </div>
 
-          <div className="mt-8 p-4 bg-muted/50 rounded-lg text-center">
-            <p className="text-sm text-muted-foreground">
-              {receipt.thankYouMessage || 'Thank you for your business!'}
-            </p>
+          {/* Note & Footer */}
+          <div>
+            <div className="text-center mb-12">
+              <p className="text-lg font-medium">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
+            </div>
+
+            <Separator className="my-8" />
+            
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-8 text-xs text-muted-foreground">
+                <div>
+                    <h4 className="font-semibold mb-2 text-foreground">Questions?</h4>
+                    <p>Email: {orgData?.email || 'N/A'}</p>
+                    <p>Call: {orgData?.phoneNumber || 'N/A'}</p>
+                </div>
+                <div>
+                    <h4 className="font-semibold mb-2 text-foreground">Payment Info:</h4>
+                    <p>This is a receipt, not an invoice. No payment is due on this document.</p>
+                </div>
+                <div>
+                    <h4 className="font-semibold mb-2 text-foreground">Terms & Conditions:</h4>
+                    <p>All sales are final. Please contact us with any issues within 30 days.</p>
+                </div>
+            </div>
           </div>
-        </CardContent>
       </Card>
 
       {/* Print Styles */}
@@ -387,18 +359,21 @@ export default function ReceiptDetailsPage() {
           body * {
             visibility: hidden;
           }
-          .print\\:hidden {
-            display: none !important;
-          }
-          .container,
-          .container * {
+          .print-container,
+          .print-container * {
             visibility: visible;
           }
-          .container {
+          .print-container {
             position: absolute;
             left: 0;
             top: 0;
             width: 100%;
+            padding: 2rem;
+            border: none;
+            box-shadow: none;
+          }
+          .print\:hidden {
+            display: none !important;
           }
         }
       `}</style>
