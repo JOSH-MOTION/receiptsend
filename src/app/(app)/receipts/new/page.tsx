@@ -1,11 +1,12 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Plus, Trash2, ArrowLeft, Send, Loader2, Save } from "lucide-react";
 import Link from "next/link";
-import { collection, addDoc, serverTimestamp, doc } from "firebase/firestore";
-import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, addDoc, serverTimestamp, doc, setDoc } from "firebase/firestore";
+import { useUser, useFirebase, useCollection, useDoc, useMemoFirebase } from "@/firebase";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -61,6 +62,9 @@ export default function NewReceiptPage() {
   const { toast } = useToast();
   const { user } = useUser();
   const { firestore } = useFirebase();
+  
+  const orgRef = useMemoFirebase(() => (user ? doc(firestore, `organizations/${user.uid}`) : null), [firestore, user]);
+  const { data: orgData } = useDoc(orgRef);
 
   const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -75,10 +79,18 @@ export default function NewReceiptPage() {
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
 
-  const [thankYouMessage, setThankYouMessage] = useState("Thank you for your business!");
+  const [thankYouMessage, setThankYouMessage] = useState("");
   const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+  
+  useEffect(() => {
+    if (orgData?.thankYouMessage) {
+      setThankYouMessage(orgData.thankYouMessage);
+    } else {
+      setThankYouMessage("Thank you for your business!");
+    }
+  }, [orgData]);
 
   const templatesQuery = useMemoFirebase(
     () => user ? collection(firestore, `organizations/${user.uid}/templates`) : null,
@@ -169,14 +181,14 @@ export default function NewReceiptPage() {
         createdAt: serverTimestamp(),
       });
       
-      // Also create/update a contact
+      // Also create/update a contact to avoid duplicates
       const contactRef = doc(firestore, `organizations/${user.uid}/contacts`, customerEmail);
-      await addDoc(collection(firestore, `organizations/${user.uid}/contacts`), {
+      await setDoc(contactRef, {
         organizationId: user.uid,
         name: customerName,
         email: customerEmail,
         createdAt: serverTimestamp(),
-      });
+      }, { merge: true });
 
 
       toast({
@@ -498,3 +510,5 @@ export default function NewReceiptPage() {
     </div>
   );
 }
+
+    
