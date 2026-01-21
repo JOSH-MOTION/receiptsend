@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { useUser } from "@/firebase";
-import { format } from "date-fns";
-import { Plus, Search, Filter, Download, Mail, Smartphone, Eye, Trash2, MoreVertical, FileText } from "lucide-react";
+import { useState, useEffect, useMemo } from "react";
+import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, deleteDoc, doc } from "firebase/firestore";
+import { format, fromUnixTime } from "date-fns";
+import { Plus, Search, Filter, Mail, Smartphone, Eye, Trash2, MoreVertical, FileText } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -58,7 +59,7 @@ interface ReceiptItem {
 }
 
 interface Receipt {
-  _id: string;
+  id: string;
   organizationId: string;
   receiptNumber: string;
   customerName: string;
@@ -69,15 +70,14 @@ interface Receipt {
   tax?: number;
   totalAmount: number;
   pdfUrl?: string;
-  createdAt: string;
+  createdAt: { seconds: number, nanoseconds: number } | Date;
 }
 
 export default function ReceiptsPage() {
   const { user } = useUser();
+  const { firestore } = useFirebase();
   const { toast } = useToast();
-  const [receipts, setReceipts] = useState<Receipt[]>([]);
-  const [filteredReceipts, setFilteredReceipts] = useState<Receipt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
   const [searchQuery, setSearchQuery] = useState("");
   const [filterChannel, setFilterChannel] = useState("all");
   const [isClient, setIsClient] = useState(false);
@@ -89,36 +89,15 @@ export default function ReceiptsPage() {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchReceipts();
-    }
-  }, [user]);
+  const receiptsQuery = useMemoFirebase(
+    () => (user ? collection(firestore, "organizations", user.uid, "receipts") : null),
+    [firestore, user]
+  );
+  const { data: receipts, isLoading } = useCollection<Omit<Receipt, 'id'>>(receiptsQuery);
 
-  useEffect(() => {
-    filterReceipts();
-  }, [receipts, searchQuery, filterChannel]);
-
-  const fetchReceipts = async () => {
-    if (!user) return;
-    try {
-      const response = await fetch('/api/receipts', {
-        headers: { 'X-User-UID': user.uid }
-      });
-      if (response.ok) {
-        const data: Receipt[] = await response.json();
-        setReceipts(data);
-        setFilteredReceipts(data);
-      }
-    } catch (error) {
-      console.error('Error fetching receipts:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const filterReceipts = () => {
-    let filtered = receipts;
+  const filteredReceipts = useMemo(() => {
+    if (!receipts) return [];
+    let filtered = [...receipts];
 
     // Search filter
     if (searchQuery) {
@@ -137,8 +116,8 @@ export default function ReceiptsPage() {
       filtered = filtered.filter((r) => r.customerPhoneNumber);
     }
 
-    setFilteredReceipts(filtered);
-  };
+    return filtered;
+  }, [receipts, searchQuery, filterChannel]);
 
   const handleDeleteClick = (receipt: Receipt) => {
     setReceiptToDelete(receipt);
@@ -146,27 +125,17 @@ export default function ReceiptsPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!receiptToDelete || !user) return;
+    if (!receiptToDelete || !user || !firestore) return;
     
     setIsDeleting(true);
     try {
-      const response = await fetch(`/api/receipts?id=${receiptToDelete._id}`, {
-        method: 'DELETE',
-        headers: { 'X-User-UID': user.uid }
-      });
+      const receiptRef = doc(firestore, 'organizations', user.uid, 'receipts', receiptToDelete.id);
+      await deleteDoc(receiptRef);
       
-      if (response.ok) {
-        // Remove from local state
-        setReceipts(receipts.filter((r) => r._id !== receiptToDelete._id));
-        
-        toast({
-          title: 'Receipt Deleted',
-          description: `Receipt #${receiptToDelete.receiptNumber} has been deleted successfully.`,
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to delete receipt');
-      }
+      toast({
+        title: 'Receipt Deleted',
+        description: `Receipt #${receiptToDelete.receiptNumber} has been deleted successfully.`,
+      });
     } catch (error: any) {
       console.error('Error deleting receipt:', error);
       toast({
@@ -182,6 +151,14 @@ export default function ReceiptsPage() {
   };
 
   const totalRevenue = filteredReceipts.reduce((sum, r) => sum + r.totalAmount, 0);
+
+  const formatTimestamp = (ts: any) => {
+    if (!ts) return '...';
+    if (ts.seconds) {
+      return format(new Date(ts.seconds * 1000), "MMM d, yyyy");
+    }
+    return format(ts, "MMM d, yyyy");
+  }
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-6 lg:p-8">
@@ -213,7 +190,7 @@ export default function ReceiptsPage() {
             <CardContent>
               <div className="text-2xl sm:text-3xl font-bold text-green-600">{filteredReceipts.length}</div>
               <p className="text-xs text-muted-foreground mt-2">
-                {receipts.length > filteredReceipts.length && `${receipts.length - filteredReceipts.length} filtered out`}
+                {receipts && receipts.length > filteredReceipts.length && `${receipts.length - filteredReceipts.length} filtered out`}
               </p>
             </CardContent>
           </Card>
@@ -302,7 +279,7 @@ export default function ReceiptsPage() {
                       ) : filteredReceipts.length > 0 ? (
                         filteredReceipts.map((receipt) => (
                           <TableRow
-                            key={receipt._id}
+                            key={receipt.id}
                             className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors border-green-100 dark:border-green-900"
                           >
                             <TableCell className="font-mono font-medium text-green-700 dark:text-green-400 text-sm">
@@ -329,7 +306,7 @@ export default function ReceiptsPage() {
                               </div>
                             </TableCell>
                             <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">
-                              {isClient ? format(new Date(receipt.createdAt), "MMM d, yyyy") : "..."}
+                              {isClient ? formatTimestamp(receipt.createdAt) : "..."}
                             </TableCell>
                             <TableCell className="text-right font-semibold text-sm">
                               ${receipt.totalAmount.toFixed(2)}
@@ -345,19 +322,11 @@ export default function ReceiptsPage() {
                                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem asChild>
-                                    <Link href={`/receipts/${receipt._id}`} className="flex items-center gap-2">
+                                    <Link href={`/receipts/${receipt.id}`} className="flex items-center gap-2">
                                       <Eye className="h-4 w-4" />
                                       View Details
                                     </Link>
                                   </DropdownMenuItem>
-                                  {receipt.pdfUrl && (
-                                    <DropdownMenuItem asChild>
-                                      <a href={receipt.pdfUrl} target="_blank" rel="noopener noreferrer" className="flex items-center gap-2">
-                                        <Download className="h-4 w-4" />
-                                        Download PDF
-                                      </a>
-                                    </DropdownMenuItem>
-                                  )}
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteClick(receipt)}

@@ -11,9 +11,10 @@ import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "
 import { useToast } from "@/hooks/use-toast";
 import { useState } from 'react';
 import { Building, Mail, Lock, Loader2 } from 'lucide-react';
-import { useAuth as useFirebaseAuth } from "@/hooks/use-auth";
+import { useAuth as useFirebaseAuth } from '@/hooks/use-auth';
 import { useFirebase } from "@/firebase";
 import { createUserWithEmailAndPassword } from "firebase/auth";
+import { doc, setDoc, serverTimestamp } from "firebase/firestore";
 import { useRouter } from "next/navigation";
 
 
@@ -29,7 +30,7 @@ export default function SignupPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
   useFirebaseAuth({ required: false });
-  const { auth } = useFirebase();
+  const { auth, firestore } = useFirebase();
   const router = useRouter();
 
   const form = useForm<SignupFormValues>({
@@ -44,7 +45,7 @@ export default function SignupPage() {
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
 
-    if (!auth) {
+    if (!auth || !firestore) {
         toast({ title: "Error", description: "Firebase not initialized", variant: "destructive" });
         setIsLoading(false);
         return;
@@ -61,23 +62,17 @@ export default function SignupPage() {
         className: "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
       });
 
-      // 2. Create Organization and User documents in MongoDB
-      const response = await fetch('/api/auth/signup', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          email: data.email,
-          organizationName: data.organizationName,
-          uid: user.uid,
-        }),
+      // 2. Create Organization document in Firestore
+      const organizationRef = doc(firestore, "organizations", user.uid);
+      await setDoc(organizationRef, {
+        companyName: data.organizationName,
+        email: data.email,
+        createdAt: serverTimestamp(),
+        smsBalance: 0,
+        totalSpent: 0,
+        totalPurchased: 0,
+        thankYouMessage: 'Thank you for your business!'
       });
-
-      const result = await response.json();
-
-      if (!response.ok) {
-        // This might happen if the user exists in Mongo but not Firebase, etc.
-        throw new Error(result.error || 'Failed to set up your organization.');
-      }
       
       // 3. Redirect to dashboard
       router.push('/dashboard');

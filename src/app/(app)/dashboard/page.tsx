@@ -36,8 +36,9 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import Link from "next/link";
 import React, { useMemo, useState, useEffect } from "react";
-import { useUser } from "@/firebase";
-import { format, subHours, subMonths } from "date-fns";
+import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection } from "firebase/firestore";
+import { format, subHours, subMonths, fromUnixTime } from "date-fns";
 
 interface ReceiptItem {
   name: string;
@@ -46,7 +47,7 @@ interface ReceiptItem {
 }
 
 interface Receipt {
-  _id: string;
+  id: string;
   organizationId: string;
   receiptNumber: string;
   customerName: string;
@@ -57,7 +58,7 @@ interface Receipt {
   tax?: number;
   totalAmount: number;
   pdfUrl?: string;
-  createdAt: string;
+  createdAt: { seconds: number, nanoseconds: number } | Date;
 }
 
 const chartConfig = {
@@ -69,41 +70,30 @@ const chartConfig = {
 
 export default function Dashboard() {
   const { user } = useUser();
-  const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
-  const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const { firestore } = useFirebase();
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
   }, []);
 
-  useEffect(() => {
-    if (user) {
-      fetchReceipts();
-    }
-  }, [user]);
+  const receiptsQuery = useMemoFirebase(
+    () => (user ? collection(firestore, "organizations", user.uid, "receipts") : null),
+    [firestore, user]
+  );
+  const { data: allReceipts, isLoading } = useCollection<Omit<Receipt, 'id'>>(receiptsQuery);
 
-  const fetchReceipts = async () => {
-    if (!user) return;
-    try {
-      const response = await fetch('/api/receipts', {
-        headers: { 'X-User-UID': user.uid }
-      });
-      if (response.ok) {
-        const data: Receipt[] = await response.json();
-        setAllReceipts(data);
-        setRecentReceipts(data.slice(0, 6));
-      }
-    } catch (error) {
-      console.error('Error fetching receipts:', error);
-    } finally {
-      setIsLoading(false);
-    }
-  };
+  const recentReceipts = useMemo(() => {
+    return allReceipts ? allReceipts.slice(0, 6) : [];
+  }, [allReceipts]);
+
+  const formatTimestamp = (ts: any) => {
+    if (!ts) return new Date();
+    return ts.seconds ? fromUnixTime(ts.seconds) : ts;
+  }
 
   const stats = useMemo(() => {
-    if (!allReceipts.length || !isClient) {
+    if (!allReceipts || !isClient) {
       return {
         totalRevenue: 0,
         receiptsSent: 0,
@@ -131,7 +121,7 @@ export default function Dashboard() {
       totalRevenue += receipt.totalAmount || 0;
       customerEmails.add(receipt.customerEmail);
 
-      const receiptDate = new Date(receipt.createdAt);
+      const receiptDate = formatTimestamp(receipt.createdAt);
       if (receiptDate > oneMonthAgo) {
         revenueLastMonth += receipt.totalAmount || 0;
         receiptsLastMonth++;
@@ -163,16 +153,19 @@ export default function Dashboard() {
   }, [allReceipts, isClient]);
 
   const chartData = useMemo(() => {
-    if (!isClient) return Array(12).fill(null).map((_, i) => ({ month: `M${i+1}`, total: 0 }));
-
-    const months = Array.from({ length: 12 }, (_, i) => {
+    const initialMonths = Array.from({ length: 12 }, (_, i) => {
       const d = new Date();
       d.setMonth(d.getMonth() - (11 - i));
       return { month: format(d, 'MMM'), total: 0 };
     });
 
+    if (!isClient || !allReceipts) return initialMonths;
+
+    const months = [...initialMonths];
+
     allReceipts.forEach(receipt => {
-      const monthKey = format(new Date(receipt.createdAt), 'MMM');
+      const receiptDate = formatTimestamp(receipt.createdAt);
+      const monthKey = format(receiptDate, 'MMM');
       const entry = months.find(m => m.month === monthKey);
       if (entry) entry.total += receipt.totalAmount;
     });
@@ -269,7 +262,7 @@ export default function Dashboard() {
                       ))
                     ) : recentReceipts.length > 0 ? (
                       recentReceipts.map((receipt) => (
-                        <TableRow key={receipt._id} className="hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors">
+                        <TableRow key={receipt.id} className="hover:bg-green-50/50 dark:hover:bg-green-900/10 transition-colors">
                           <TableCell>
                             <div className="font-medium text-sm">{receipt.customerName}</div>
                             <div className="text-xs text-muted-foreground hidden sm:block">{receipt.customerEmail}</div>
@@ -280,7 +273,7 @@ export default function Dashboard() {
                               {receipt.customerPhoneNumber && <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-xs"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>}
                             </div>
                           </TableCell>
-                          <TableCell className="text-sm">{isClient ? format(new Date(receipt.createdAt), "MMM d, yyyy") : "..."}</TableCell>
+                          <TableCell className="text-sm">{isClient ? format(formatTimestamp(receipt.createdAt), "MMM d, yyyy") : "..."}</TableCell>
                           <TableCell className="text-right font-semibold text-green-600 dark:text-green-400 text-sm">${receipt.totalAmount.toFixed(2)}</TableCell>
                         </TableRow>
                       ))

@@ -1,179 +1,42 @@
-/**
- * This ruleset enforces a strict, multi-tenant ownership model for the
- * ReceiptRocket application, where all data is partitioned by organization.
- *
- * Core Philosophy:
- * The security model is built on Database-Based Access Control (DBAC),
- * where an authenticated user's UID is treated as the unique identifier
- * for their organization (`organizationId`). This creates a secure sandbox
- * for each organization, preventing any cross-tenant data access. All
- * operations require a user to be signed in.
- *
- * Data Structure:
- * All application data is hierarchically organized under a single top-level
- * collection: `/organizations`. Each organization's data, including receipts,
- * logs, and templates, is stored in subcollections under its specific
- * document path (e.g., `/organizations/{organizationId}/receipts/{receiptId}`).
- *
- * Key Security Decisions:
- * - No Public Access: All read and write operations require authentication.
- * - No Organization Listing: Listing documents from the root `/organizations`
- *   collection is explicitly disallowed to prevent enumeration of all tenants.
- * - Strict Ownership: A user can only access the document tree corresponding
- *   to their own `organizationId`. For example, a user with UID 'org_abc' can
- *   only access paths starting with `/organizations/org_abc`.
- * - Denormalization for Authorization: Subcollection documents (like Receipts)
- *   are expected to contain an `organizationId` field that matches the ID in
- *   the path. This is enforced on creation to ensure relational integrity
- *   without requiring costly `get()` calls in the rules.
- */
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
-    // Helper functions to abstract and reuse common security logic.
-
-    /**
-     * Checks if the user is authenticated.
-     */
+    // Helper function to check if a user is signed in
     function isSignedIn() {
       return request.auth != null;
     }
 
-    /**
-     * Checks if the currently authenticated user owns the organization data.
-     * Ownership is determined by matching the user's UID to the organizationId.
-     */
-    function isOwner(orgId) {
-      return isSignedIn() && request.auth.uid == orgId;
+    // Helper function to check if the user is the owner of the organization
+    function isOwner(organizationId) {
+      return isSignedIn() && request.auth.uid == organizationId;
     }
 
-    /**
-     * Checks for ownership on an existing document. Used for update/delete.
-     * Prevents modifying or deleting a document that does not exist.
-     */
-    function isExistingOwner(orgId) {
-      return isOwner(orgId) && resource != null;
-    }
-
-    /**
-     * @description
-     *   Secures the root organization document. Only the authenticated owner
-     *   of the organization can read, update, or delete their profile.
-     *   Creation is allowed if the new document ID matches the user's UID.
-     *   Listing all organizations is explicitly forbidden.
-     * @path
-     *   /organizations/{organizationId}
-     * @allow
-     *   A signed-in user with UID 'org_abc' (create)s a document at /organizations/org_abc.
-     * @deny
-     *   A user with UID 'org_xyz' attempts to (get) the document at /organizations/org_abc.
-     * @principle
-     *   Enforces a strict ownership model for the root entity of each tenant.
-     */
+    // Organizations can be created by any authenticated user, as long as the
+    // document ID matches their own user ID. They can only read or update
+    // their own organization document. Listing all organizations is disallowed.
     match /organizations/{organizationId} {
-      allow get: if isOwner(organizationId);
-      allow list: if false; // Disallow listing all organizations for security.
-      allow create: if isOwner(organizationId) && request.resource.data.id == organizationId;
-      allow update: if isExistingOwner(organizationId) && request.resource.data.id == resource.data.id;
-      allow delete: if isExistingOwner(organizationId);
+      allow get, update: if isOwner(organizationId);
+      allow create: if isOwner(organizationId);
+      allow list: if false; 
     }
 
-    /**
-     * @description
-     *   Secures the receipts subcollection. Only the owner of the parent
-     *   organization can access the receipts within it.
-     * @path
-     *   /organizations/{organizationId}/receipts/{receiptId}
-     * @allow
-     *   A signed-in user with UID 'org_abc' (list)s documents from
-     *   /organizations/org_abc/receipts.
-     * @deny
-     *   A user with UID 'org_xyz' attempts to (create) a document in
-     *   /organizations/org_abc/receipts.
-     * @principle
-     *   Inherits security from the parent document path, ensuring data is
-     *   sandboxed within the organization.
-     */
+    // Receipts can be created, read, updated, or deleted only by the
+    // owner of the parent organization.
     match /organizations/{organizationId}/receipts/{receiptId} {
-      allow get: if isOwner(organizationId);
-      allow list: if isOwner(organizationId);
-      allow create: if isOwner(organizationId) && request.resource.data.organizationId == organizationId;
-      allow update: if isExistingOwner(organizationId) && request.resource.data.organizationId == resource.data.organizationId;
-      allow delete: if isExistingOwner(organizationId);
+      allow read, write: if isOwner(organizationId);
+    }
+    
+    // Contacts can be created, read, updated, or deleted only by the
+    // owner of the parent organization.
+    match /organizations/{organizationId}/contacts/{contactId} {
+        allow read, write: if isOwner(organizationId);
     }
 
-    /**
-     * @description
-     *   Secures the email logs subcollection. Only the owner of the parent
-     *   organization can access the logs within it. Writes are disallowed as logs
-     *   should be created by a trusted backend process.
-     * @path
-     *   /organizations/{organizationId}/email_logs/{emailLogId}
-     * @allow
-     *   A signed-in user with UID 'org_abc' (get)s a document from
-     *   /organizations/org_abc/email_logs/log_123.
-     * @deny
-     *   A user with UID 'org_abc' attempts to (create) a new email log.
-     * @principle
-     *   Provides read-only access to organization owners for auditing purposes,
-     *   while protecting data integrity by disallowing client writes.
-     */
-    match /organizations/{organizationId}/email_logs/{emailLogId} {
-      allow get: if isOwner(organizationId);
-      allow list: if isOwner(organizationId);
-      allow create: if false; // Logs should be created by the backend, not the client.
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description
-     *   Secures the SMS logs subcollection. Only the owner of the parent
-     *   organization can access the logs within it. Writes are disallowed as logs
-     *   should be created by a trusted backend process.
-     * @path
-     *   /organizations/{organizationId}/sms_logs/{smsLogId}
-     * @allow
-     *   A signed-in user with UID 'org_abc' (list)s documents from
-     *   /organizations/org_abc/sms_logs.
-     * @deny
-     *   A user with UID 'org_xyz' attempts to (get) an SMS log from
-     *   /organizations/org_abc/sms_logs.
-     * @principle
-     *   Provides read-only access to organization owners for auditing purposes,
-     *   while protecting data integrity by disallowing client writes.
-     */
-    match /organizations/{organizationId}/sms_logs/{smsLogId} {
-      allow get: if isOwner(organizationId);
-      allow list: if isOwner(organizationId);
-      allow create: if false; // Logs should be created by the backend, not the client.
-      allow update: if false;
-      allow delete: if false;
-    }
-
-    /**
-     * @description
-     *   Secures the templates subcollection. Only the owner of the parent
-     *   organization can create, read, update, or delete their own templates.
-     * @path
-     *   /organizations/{organizationId}/templates/{templateId}
-     * @allow
-     *   A signed-in user with UID 'org_abc' (update)s a document at
-     *   /organizations/org_abc/templates/template_123.
-     * @deny
-     *   A user with UID 'org_xyz' attempts to (delete) a document at
-     *   /organizations/org_abc/templates/template_123.
-     * @principle
-     *   Inherits security from the parent document path, ensuring that templates
-     *   are privately managed by their respective organization.
-     */
+    // Templates can be created, read, updated, or deleted only by the
+    // owner of the parent organization.
     match /organizations/{organizationId}/templates/{templateId} {
-      allow get: if isOwner(organizationId);
-      allow list: if isOwner(organizationId);
-      allow create: if isOwner(organizationId) && request.resource.data.organizationId == organizationId;
-      allow update: if isExistingOwner(organizationId) && request.resource.data.organizationId == resource.data.organizationId;
-      allow delete: if isExistingOwner(organizationId);
+      allow read, write: if isOwner(organizationId);
     }
   }
 }

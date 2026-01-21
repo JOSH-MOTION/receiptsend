@@ -14,7 +14,8 @@ import {
 import Link from "next/link";
 import Image from "next/image";
 import { usePathname, useRouter } from "next/navigation";
-import { useState, useEffect } from "react";
+import { useState } from "react";
+import { doc } from "firebase/firestore";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { Button } from "@/components/ui/button";
@@ -29,7 +30,7 @@ import {
 import { PlaceHolderImages } from "@/lib/placeholder-images";
 import { Skeleton } from "./ui/skeleton";
 import { cn } from "@/lib/utils";
-import { useUser, useAuth as useFirebaseAuth } from "@/firebase";
+import { useUser, useFirebase, useDoc, useMemoFirebase, useAuth as useFirebaseAuth } from "@/firebase";
 import { signOut } from "firebase/auth";
 
 
@@ -67,38 +68,15 @@ function NavLink({
 export function AppShell({ children }: { children: React.ReactNode }) {
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
   const { user, isUserLoading } = useUser();
-  const { auth } = useFirebaseAuth();
+  const { auth, firestore } = useFirebase();
   const router = useRouter();
   const pathname = usePathname();
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
-  const [organizationName, setOrganizationName] = useState<string>('');
 
-  // Fetch organization name
-  useEffect(() => {
-    const fetchOrganization = async () => {
-      if (!user) return;
-      try {
-        // We pass the user's UID to securely fetch their organization data
-        const response = await fetch('/api/organization', {
-          headers: { 'X-User-UID': user.uid }
-        });
-        if (response.ok) {
-          const data = await response.json();
-          setOrganizationName(data.companyName || 'My Organization');
-        } else {
-          // If org not found (e.g., still being created), use a placeholder
-          setOrganizationName('My Organization');
-        }
-      } catch (error) {
-        console.error('Failed to fetch organization:', error);
-        setOrganizationName('My Organization');
-      }
-    };
-    
-    if (user) {
-      fetchOrganization();
-    }
-  }, [user]);
+  // Fetch organization name using useDoc
+  const orgRef = useMemoFirebase(() => user ? doc(firestore, 'organizations', user.uid) : null, [firestore, user]);
+  const { data: organization, isLoading: isOrgLoading } = useDoc(orgRef);
+
 
   const handleLogout = async () => {
     if (!auth) return;
@@ -117,6 +95,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/contacts", icon: Contact, label: "Contacts" },
     { href: "/settings", icon: Settings, label: "Settings" },
   ];
+
+  const organizationName = organization?.companyName || "My Organization";
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/20">
@@ -166,7 +146,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   variant="ghost" 
                   className="w-full justify-start gap-3 h-auto py-3 px-4 hover:bg-green-50 dark:hover:bg-green-900/20 rounded-xl"
                 >
-                  {isUserLoading ? (
+                  {isUserLoading || isOrgLoading ? (
                     <>
                       <Skeleton className="h-10 w-10 rounded-full" />
                       <div className="flex flex-col items-start gap-1 flex-1">
@@ -184,7 +164,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       </Avatar>
                       <div className="flex flex-col items-start flex-1 text-left">
                         <span className="text-sm font-semibold text-foreground">
-                          {organizationName || "Loading..."}
+                          {organizationName}
                         </span>
                         <span className="text-xs text-muted-foreground truncate w-full">
                           {user?.email}
@@ -267,7 +247,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start flex-1 text-left">
-                      <span className="text-sm font-semibold">{organizationName || "Loading..."}</span>
+                      <span className="text-sm font-semibold">{organizationName}</span>
                       <span className="text-xs text-muted-foreground">{user?.email}</span>
                     </div>
                   </Button>

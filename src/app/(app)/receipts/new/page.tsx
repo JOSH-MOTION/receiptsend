@@ -2,8 +2,10 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Send, Loader2, MessageSquare, Save } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Send, Loader2, Save } from "lucide-react";
 import Link from "next/link";
+import { collection, addDoc, serverTimestamp } from "firebase/firestore";
+import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -28,7 +30,6 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog"
-import { useUser } from "@/firebase";
 
 interface Item {
   name: string;
@@ -37,22 +38,35 @@ interface Item {
 }
 
 interface Template {
-  _id: string;
+  id: string;
   name: string;
   content: string;
 }
+
+// Function to generate a unique receipt number
+async function generateReceiptNumber(): Promise<string> {
+    const prefix = 'RCT-';
+    const date = new Date();
+    const year = date.getFullYear().toString().slice(-2);
+    const month = (date.getMonth() + 1).toString().padStart(2, '0');
+    // In a real app, you'd query Firestore for the last receipt to get the sequence.
+    // For this client-side version, we'll use a random sequence for simplicity.
+    const sequence = Math.floor(Math.random() * 9000) + 1000;
+    return `${prefix}${year}${month}${sequence}`;
+}
+
 
 export default function NewReceiptPage() {
   const router = useRouter();
   const { toast } = useToast();
   const { user } = useUser();
+  const { firestore } = useFirebase();
+
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [customerName, setCustomerName] = useState("");
   const [customerEmail, setCustomerEmail] = useState("");
-  const [customerPhone, setCustomerPhone] = useState("");
   const [sendEmail, setSendEmail] = useState(true);
-  const [sendSMS, setSendSMS] = useState(false);
   
   const [items, setItems] = useState<Item[]>([
     { name: "", quantity: 1, price: 0 },
@@ -61,62 +75,35 @@ export default function NewReceiptPage() {
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
 
-  // New state for templates and thank you message
   const [thankYouMessage, setThankYouMessage] = useState("Thank you for your business!");
-  const [templates, setTemplates] = useState<Template[]>([]);
-  const [isTemplatesLoading, setIsTemplatesLoading] = useState(true);
   const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
   const [newTemplateName, setNewTemplateName] = useState("");
   const [isSavingTemplate, setIsSavingTemplate] = useState(false);
 
-  useEffect(() => {
-    if (user) {
-      fetchTemplates();
-    }
-  }, [user]);
-
-  const fetchTemplates = async () => {
-    if (!user) return;
-    setIsTemplatesLoading(true);
-    try {
-      const response = await fetch('/api/templates?type=receipt_thank_you', {
-        headers: { 'X-User-UID': user.uid },
-      });
-      if (response.ok) {
-        setTemplates(await response.json());
-      }
-    } catch (error) {
-      console.error("Failed to fetch templates", error);
-      toast({ title: "Error", description: "Could not load templates.", variant: "destructive" });
-    } finally {
-      setIsTemplatesLoading(false);
-    }
-  };
+  const templatesQuery = useMemoFirebase(
+    () => user ? collection(firestore, `organizations/${user.uid}/templates`) : null,
+    [firestore, user]
+  );
+  const { data: templates, isLoading: isTemplatesLoading } = useCollection<Omit<Template, 'id'>>(templatesQuery);
 
   const handleSaveTemplate = async () => {
-    if (!user || !newTemplateName.trim() || !thankYouMessage.trim()) {
+    if (!user || !firestore || !newTemplateName.trim() || !thankYouMessage.trim()) {
       toast({ title: "Error", description: "Template name and message cannot be empty.", variant: "destructive" });
       return;
     }
     setIsSavingTemplate(true);
     try {
-      const response = await fetch('/api/templates', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-UID': user.uid },
-        body: JSON.stringify({
-          name: newTemplateName,
-          content: thankYouMessage,
-          type: 'receipt_thank_you',
-        }),
+      const templatesCol = collection(firestore, `organizations/${user.uid}/templates`);
+      await addDoc(templatesCol, {
+        name: newTemplateName,
+        content: thankYouMessage,
+        type: 'receipt_thank_you',
+        createdAt: serverTimestamp(),
       });
-      if (response.ok) {
-        toast({ title: "Success", description: `Template "${newTemplateName}" saved.` });
-        setNewTemplateName("");
-        setIsSaveTemplateOpen(false);
-        fetchTemplates(); // Refresh template list
-      } else {
-        throw new Error('Failed to save template');
-      }
+
+      toast({ title: "Success", description: `Template "${newTemplateName}" saved.` });
+      setNewTemplateName("");
+      setIsSaveTemplateOpen(false);
     } catch (error) {
       toast({ title: "Error", description: "Could not save template.", variant: "destructive" });
     } finally {
@@ -143,7 +130,7 @@ export default function NewReceiptPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!user) return;
+    if (!user || !firestore) return;
     
     if (!customerName || !customerEmail) {
       toast({
@@ -166,35 +153,41 @@ export default function NewReceiptPage() {
     setIsSubmitting(true);
 
     try {
-      const response = await fetch("/api/receipts", {
-        method: "POST",
-        headers: { "Content-Type": "application/json", "X-User-UID": user.uid },
-        body: JSON.stringify({
-          customerName,
-          customerEmail,
-          customerPhoneNumber: sendSMS ? customerPhone : undefined,
-          items,
-          discount,
-          tax,
-          totalAmount: total,
-          thankYouMessage, // Include thank you message
-          sendEmail,
-          sendSMS
-        }),
+      const receiptNumber = await generateReceiptNumber();
+      const receiptsCol = collection(firestore, `organizations/${user.uid}/receipts`);
+      
+      await addDoc(receiptsCol, {
+        organizationId: user.uid,
+        receiptNumber,
+        customerName,
+        customerEmail,
+        items,
+        discount,
+        tax,
+        totalAmount: total,
+        thankYouMessage,
+        createdAt: serverTimestamp(),
+      });
+      
+      // Also create/update a contact
+      const contactRef = doc(firestore, `organizations/${user.uid}/contacts`, customerEmail);
+      await addDoc(collection(firestore, `organizations/${user.uid}/contacts`), {
+        organizationId: user.uid,
+        name: customerName,
+        email: customerEmail,
+        createdAt: serverTimestamp(),
       });
 
-      if (!response.ok) {
-        throw new Error("Failed to create receipt");
-      }
 
       toast({
         title: "Receipt Created!",
-        description: "Your receipt has been sent successfully.",
+        description: "Your new receipt has been saved.",
         className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
       });
 
       router.push("/receipts");
     } catch (error) {
+      console.error(error);
       toast({
         title: "Error",
         description: "Failed to create receipt. Please try again.",
@@ -219,7 +212,7 @@ export default function NewReceiptPage() {
             <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               Create Receipt
             </h1>
-            <p className="text-muted-foreground mt-2">Generate and send a new digital receipt</p>
+            <p className="text-muted-foreground mt-2">Generate and save a new digital receipt</p>
           </div>
         </div>
 
@@ -252,18 +245,6 @@ export default function NewReceiptPage() {
                   value={customerEmail}
                   onChange={(e) => setCustomerEmail(e.target.value)}
                   required
-                  className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
-                />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="customerPhone">Phone Number (Optional)</Label>
-                <Input
-                  id="customerPhone"
-                  type="tel"
-                  placeholder="+1 (555) 123-4567"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
                   className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                 />
               </div>
@@ -340,8 +321,8 @@ export default function NewReceiptPage() {
           {/* Message & Delivery */}
           <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
             <CardHeader>
-              <CardTitle>Message & Delivery</CardTitle>
-              <CardDescription>Customize the thank you message and choose delivery channels.</CardDescription>
+              <CardTitle>Message</CardTitle>
+              <CardDescription>Customize the thank you message for this receipt.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -349,7 +330,7 @@ export default function NewReceiptPage() {
                  <div className="flex gap-2">
                   <Select
                     onValueChange={(value) => setThankYouMessage(value)}
-                    disabled={isTemplatesLoading || templates.length === 0}
+                    disabled={isTemplatesLoading || !templates || templates.length === 0}
                   >
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Use a template" />
@@ -359,7 +340,7 @@ export default function NewReceiptPage() {
                         <SelectItem value="loading" disabled>Loading...</SelectItem>
                       ) : (
                         templates.map((template) => (
-                          <SelectItem key={template._id} value={template.content}>
+                          <SelectItem key={template.id} value={template.content}>
                             {template.name}
                           </SelectItem>
                         ))
@@ -418,19 +399,7 @@ export default function NewReceiptPage() {
                     className="border-green-500 data-[state=checked]:bg-green-600"
                   />
                   <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
-                    Send receipt via email
-                  </Label>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="sendSMS"
-                    checked={sendSMS}
-                    onCheckedChange={(checked) => setSendSMS(checked as boolean)}
-                    disabled={!customerPhone}
-                    className="border-green-500 data-[state=checked]:bg-green-600"
-                  />
-                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">
-                    Send receipt via SMS
+                    Send receipt via email (Feature disabled)
                   </Label>
                 </div>
               </div>
@@ -519,7 +488,7 @@ export default function NewReceiptPage() {
               ) : (
                 <>
                   <Send className="h-4 w-4 mr-2" />
-                  Create & Send Receipt
+                  Create Receipt
                 </>
               )}
             </Button>

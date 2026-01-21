@@ -2,13 +2,11 @@
 
 import {
   File,
-  MessageSquare,
   PlusCircle,
   Trash2,
   MoreVertical,
   User,
 } from "lucide-react"
-
 import {
   Breadcrumb,
   BreadcrumbItem,
@@ -53,61 +51,34 @@ import {
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
 import Link from "next/link"
-import { useUser } from "@/firebase";
+import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
+import { collection, deleteDoc, doc } from "firebase/firestore";
 import { format } from "date-fns";
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
 
 interface Contact {
-  _id: string;
+  id: string;
   name: string;
   email: string;
   phoneNumber?: string;
-  createdAt: string;
+  createdAt: { seconds: number; nanoseconds: number; } | Date;
 }
 
 export default function ContactsPage() {
     const { user } = useUser();
+    const { firestore } = useFirebase();
     const { toast } = useToast();
-    const [contacts, setContacts] = useState<Contact[]>([]);
-    const [isLoading, setIsLoading] = useState(true);
+    
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
 
-    useEffect(() => {
-        if (user) {
-            fetchContacts();
-        }
-    }, [user]);
-
-    const fetchContacts = async () => {
-        if (!user) return;
-        try {
-            const response = await fetch('/api/contacts', {
-                headers: { 'X-User-UID': user.uid }
-            });
-            if (response.ok) {
-                const data = await response.json();
-                setContacts(data);
-            } else {
-                toast({
-                    title: 'Error',
-                    description: 'Failed to load contacts',
-                    variant: 'destructive',
-                });
-            }
-        } catch (error) {
-            console.error('Error fetching contacts:', error);
-            toast({
-                title: 'Error',
-                description: 'Failed to load contacts',
-                variant: 'destructive',
-            });
-        } finally {
-            setIsLoading(false);
-        }
-    };
+    const contactsQuery = useMemoFirebase(() => 
+        user ? collection(firestore, 'organizations', user.uid, 'contacts') : null,
+        [firestore, user]
+    );
+    const { data: contacts, isLoading } = useCollection<Omit<Contact, 'id'>>(contactsQuery);
 
     const handleDeleteClick = (contact: Contact) => {
         setContactToDelete(contact);
@@ -115,26 +86,17 @@ export default function ContactsPage() {
     };
 
     const handleDeleteConfirm = async () => {
-        if (!contactToDelete || !user) return;
+        if (!contactToDelete || !user || !firestore) return;
 
         setIsDeleting(true);
         try {
-            const response = await fetch(`/api/contacts?id=${contactToDelete._id}`, {
-                method: 'DELETE',
-                headers: { 'X-User-UID': user.uid }
+            const contactRef = doc(firestore, 'organizations', user.uid, 'contacts', contactToDelete.id);
+            await deleteDoc(contactRef);
+            
+            toast({
+                title: 'Contact Deleted',
+                description: `${contactToDelete.name} has been deleted successfully.`,
             });
-
-            if (response.ok) {
-                const result = await response.json();
-                setContacts(contacts.filter((c) => c._id !== contactToDelete._id));
-                toast({
-                    title: 'Contact Deleted',
-                    description: `${result.contactName} has been deleted successfully.`,
-                });
-            } else {
-                const error = await response.json();
-                throw new Error(error.error || 'Failed to delete contact');
-            }
         } catch (error: any) {
             console.error('Error deleting contact:', error);
             toast({
@@ -148,6 +110,14 @@ export default function ContactsPage() {
             setContactToDelete(null);
         }
     };
+
+    const formatTimestamp = (ts: any) => {
+      if (!ts) return '...';
+      if (ts.seconds) {
+        return format(new Date(ts.seconds * 1000), "yyyy-MM-dd");
+      }
+      return format(ts, "yyyy-MM-dd");
+    }
 
   return (
     <>
@@ -166,19 +136,11 @@ export default function ContactsPage() {
           </BreadcrumbList>
         </Breadcrumb>
         <div className="ml-auto flex items-center gap-2">
-           <Button size="sm" variant="outline" className="h-8 gap-1">
+           <Button size="sm" variant="outline" className="h-8 gap-1" disabled>
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
               Export
             </span>
-          </Button>
-          <Button size="sm" variant="outline" className="h-8 gap-1" asChild>
-            <Link href="/contacts/bulk-sms">
-              <MessageSquare className="h-3.5 w-3.5" />
-              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-                Bulk Message
-              </span>
-            </Link>
           </Button>
           <Button size="sm" className="h-8 gap-1" disabled>
             <PlusCircle className="h-3.5 w-3.5" />
@@ -223,14 +185,14 @@ export default function ContactsPage() {
                   ))
               ) : contacts && contacts.length > 0 ? (
                 contacts.map((contact) => (
-                <TableRow key={contact._id} className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
+                <TableRow key={contact.id} className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
                   <TableCell className="font-medium">{contact.name}</TableCell>
                   <TableCell>{contact.email}</TableCell>
                   <TableCell className="hidden md:table-cell">
                     {contact.phoneNumber || "-"}
                   </TableCell>
                   <TableCell className="hidden md:table-cell">
-                    {format(new Date(contact.createdAt), "yyyy-MM-dd")}
+                    {formatTimestamp(contact.createdAt)}
                   </TableCell>
                   <TableCell className="text-right">
                     <DropdownMenu>

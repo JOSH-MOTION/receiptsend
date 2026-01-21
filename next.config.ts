@@ -1,9 +1,6 @@
 import type { NextConfig } from 'next';
 
 const nextConfig: NextConfig = {
-  // This fixes the ENOENT Helvetica.afm error with pdfkit
-  serverExternalPackages: ['pdfkit'],
-
   typescript: {
     ignoreBuildErrors: true,
   },

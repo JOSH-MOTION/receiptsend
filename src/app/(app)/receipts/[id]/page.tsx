@@ -4,9 +4,6 @@ import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
-  Download,
-  Mail,
-  MessageSquare,
   Printer,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -19,10 +16,11 @@ import {
 } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { Badge } from '@/components/ui/badge';
-import { format } from 'date-fns';
+import { format, fromUnixTime } from 'date-fns';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
-import { useUser } from '@/firebase';
+import { useUser, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
+import { doc } from 'firebase/firestore';
 
 interface ReceiptItem {
   name: string;
@@ -31,7 +29,7 @@ interface ReceiptItem {
 }
 
 interface Receipt {
-  _id: string;
+  id: string;
   organizationId: string;
   receiptNumber: string;
   customerName: string;
@@ -41,8 +39,7 @@ interface Receipt {
   discount?: number;
   tax?: number;
   totalAmount: number;
-  pdfUrl?: string;
-  createdAt: string;
+  createdAt: { seconds: number; nanoseconds: number; };
   thankYouMessage?: string;
 }
 
@@ -50,160 +47,39 @@ export default function ReceiptDetailsPage() {
   const params = useParams();
   const router = useRouter();
   const { user } = useUser();
+  const { firestore } = useFirebase();
   const { toast } = useToast();
-  const [receipt, setReceipt] = useState<Receipt | null>(null);
-  const [isLoading, setIsLoading] = useState(true);
-  const [isDownloading, setIsDownloading] = useState(false);
 
+  const receiptId = Array.isArray(params.id) ? params.id[0] : params.id;
+
+  const receiptRef = useMemoFirebase(
+    () => (receiptId && user ? doc(firestore, `organizations/${user.uid}/receipts`, receiptId) : null),
+    [firestore, user, receiptId]
+  );
+  const { data: receipt, isLoading, error } = useDoc<Omit<Receipt, 'id'>>(receiptRef);
+  
   useEffect(() => {
-    if (params.id && user) {
-      fetchReceipt();
-    }
-  }, [params.id, user]);
-
-  const fetchReceipt = async () => {
-    try {
-      const response = await fetch(`/api/receipts/${params.id}`, {
-          headers: { 'X-User-UID': user!.uid }
-      });
-      if (response.ok) {
-        const data = await response.json();
-        setReceipt(data);
-      } else {
-        const error = await response.json();
-        console.error('Fetch error:', error);
-        toast({
+    if (!isLoading && !receipt && receiptId) {
+       toast({
           title: 'Error',
-          description: error.error || 'Receipt not found',
+          description: 'Receipt not found or you do not have permission to view it.',
           variant: 'destructive',
         });
-        router.push('/receipts');
-      }
-    } catch (error) {
-      console.error('Error fetching receipt:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to load receipt',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsLoading(false);
+       router.push('/receipts');
     }
-  };
-
-  const handleDownloadPDF = async () => {
-    if (!receipt || isDownloading || !user) return;
-
-    setIsDownloading(true);
-    try {
-      const response = await fetch(`/api/receipts/${receipt._id}/pdf`, {
-          headers: { 'X-User-UID': user.uid }
-      });
-      
-      if (response.ok) {
-        const blob = await response.blob();
-        
-        if (blob.size === 0) {
-          throw new Error('PDF is empty');
-        }
-
-        const url = window.URL.createObjectURL(blob);
-        const a = document.createElement('a');
-        a.href = url;
-        a.download = `receipt-${receipt.receiptNumber}.pdf`;
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
-        window.URL.revokeObjectURL(url);
-
-        toast({
-          title: 'Success',
-          description: 'Receipt downloaded successfully',
-        });
-      } else {
-        const errorText = await response.text();
-        let errorMessage = 'Failed to download PDF';
-        try {
-          const errorJson = JSON.parse(errorText);
-          errorMessage = errorJson.error || errorMessage;
-        } catch (e) {
-          // It's not JSON, use the text directly
-        }
-        throw new Error(errorMessage);
-      }
-    } catch (error: any) {
-      console.error('Error downloading PDF:', error);
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to download receipt PDF',
-        variant: 'destructive',
-      });
-    } finally {
-      setIsDownloading(false);
-    }
-  };
+  }, [isLoading, receipt, receiptId, router, toast]);
 
   const handlePrint = () => {
     window.print();
   };
+  
+  const formatTimestamp = (ts: any, timeFormat: string = 'MMMM dd, yyyy') => {
+    if (!ts) return '...';
+    const date = ts.seconds ? fromUnixTime(ts.seconds) : ts;
+    return format(date, timeFormat);
+  }
 
-  const handleResendEmail = async () => {
-    if (!receipt || !user) return;
-
-    try {
-      const response = await fetch(`/api/receipts/${receipt._id}/resend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-UID': user.uid },
-        body: JSON.stringify({ type: 'email' }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'Email resent successfully',
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to resend');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to resend email',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  const handleResendSMS = async () => {
-    if (!receipt || !user) return;
-
-    try {
-      const response = await fetch(`/api/receipts/${receipt._id}/resend`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'X-User-UID': user.uid },
-        body: JSON.stringify({ type: 'sms' }),
-      });
-
-      if (response.ok) {
-        toast({
-          title: 'Success',
-          description: 'SMS resent successfully',
-        });
-      } else {
-        const error = await response.json();
-        throw new Error(error.error || 'Failed to resend');
-      }
-    } catch (error: any) {
-      toast({
-        title: 'Error',
-        description: error.message || 'Failed to resend SMS',
-        variant: 'destructive',
-      });
-    }
-  };
-
-  if (isLoading) {
+  if (isLoading || !receipt) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -212,10 +88,6 @@ export default function ReceiptDetailsPage() {
         </div>
       </div>
     );
-  }
-
-  if (!receipt) {
-    return null;
   }
 
   const subtotal = receipt.items.reduce(
@@ -241,25 +113,6 @@ export default function ReceiptDetailsPage() {
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleDownloadPDF}
-            disabled={isDownloading}
-          >
-            <Download className="mr-2 h-4 w-4" />
-            {isDownloading ? 'Downloading...' : 'Download PDF'}
-          </Button>
-          <Button variant="outline" size="sm" onClick={handleResendEmail}>
-            <Mail className="mr-2 h-4 w-4" />
-            Resend Email
-          </Button>
-          {receipt.customerPhoneNumber && (
-            <Button variant="outline" size="sm" onClick={handleResendSMS}>
-              <MessageSquare className="mr-2 h-4 w-4" />
-              Resend SMS
-            </Button>
-          )}
         </div>
       </div>
 
@@ -274,7 +127,7 @@ export default function ReceiptDetailsPage() {
               </CardDescription>
             </div>
             <Badge variant="secondary" className="text-sm">
-              Sent
+              Saved
             </Badge>
           </div>
         </CardHeader>
@@ -285,11 +138,11 @@ export default function ReceiptDetailsPage() {
               <h3 className="font-semibold mb-2">Receipt Details</h3>
               <p className="text-sm text-muted-foreground">
                 <strong>Date:</strong>{' '}
-                {format(new Date(receipt.createdAt), 'MMMM dd, yyyy')}
+                {formatTimestamp(receipt.createdAt)}
               </p>
               <p className="text-sm text-muted-foreground">
                 <strong>Time:</strong>{' '}
-                {format(new Date(receipt.createdAt), 'hh:mm a')}
+                {formatTimestamp(receipt.createdAt, 'hh:mm a')}
               </p>
             </div>
             <div>
