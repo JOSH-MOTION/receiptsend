@@ -24,19 +24,19 @@ service cloud.firestore {
     // Receipts can be created, read, updated, or deleted only by the
     // owner of the parent organization.
     match /organizations/{organizationId}/receipts/{receiptId} {
-      allow read, write: if isOwner(organizationId);
+      allow get, list, create, update, delete: if isOwner(organizationId);
     }
     
     // Contacts can be created, read, updated, or deleted only by the
     // owner of the parent organization.
     match /organizations/{organizationId}/contacts/{contactId} {
-        allow read, write: if isOwner(organizationId);
+        allow get, list, create, update, delete: if isOwner(organizationId);
     }
 
     // Templates can be created, read, updated, or deleted only by the
     // owner of the parent organization.
     match /organizations/{organizationId}/templates/{templateId} {
-      allow read, write: if isOwner(organizationId);
+      allow get, list, create, update, delete: if isOwner(organizationId);
     }
   }
 }
