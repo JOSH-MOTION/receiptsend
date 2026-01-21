@@ -5,6 +5,9 @@ import { useParams, useRouter } from 'next/navigation';
 import {
   ArrowLeft,
   Printer,
+  Mail,
+  MessageSquare,
+  Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
@@ -21,6 +24,8 @@ import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
 import { useUser, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
+import { sendReceiptAction } from '@/actions/send-receipt-action';
+import type { SendReceiptInput } from '@/actions/receipt-types';
 
 interface ReceiptItem {
   name: string;
@@ -49,6 +54,8 @@ export default function ReceiptDetailsPage() {
   const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
+  const [isSendingEmail, setIsSendingEmail] = useState(false);
+  const [isSendingSMS, setIsSendingSMS] = useState(false);
 
   const receiptId = Array.isArray(params.id) ? params.id[0] : params.id;
 
@@ -58,9 +65,15 @@ export default function ReceiptDetailsPage() {
   );
   const { data: receipt, isLoading: isReceiptLoading, error } = useDoc<Omit<Receipt, 'id'>>(receiptRef);
   
+  const orgRef = useMemoFirebase(
+    () => (user ? doc(firestore, `organizations/${user.uid}`) : null),
+    [firestore, user]
+  );
+  const { data: orgData } = useDoc(orgRef);
+  
   useEffect(() => {
     const doneLoading = !isUserLoading && !isReceiptLoading;
-    if (doneLoading && !receipt && receiptId) {
+    if (doneLoading && !receipt && receiptId && !error) {
        toast({
           title: 'Error',
           description: 'Receipt not found or you do not have permission to view it.',
@@ -68,10 +81,82 @@ export default function ReceiptDetailsPage() {
         });
        router.push('/receipts');
     }
-  }, [isUserLoading, isReceiptLoading, receipt, receiptId, router, toast]);
+    
+    if (error) {
+      console.error('Error loading receipt:', error);
+      toast({
+        title: 'Permission Error',
+        description: 'You do not have permission to view this receipt.',
+        variant: 'destructive',
+      });
+      router.push('/receipts');
+    }
+  }, [isUserLoading, isReceiptLoading, receipt, receiptId, error, router, toast]);
 
   const handlePrint = () => {
     window.print();
+  };
+  
+  const handleResendEmail = async () => {
+    if (!receipt || !orgData) return;
+    
+    setIsSendingEmail(true);
+    try {
+      const flowInput: SendReceiptInput = {
+        receipt: {
+          receiptNumber: receipt.receiptNumber,
+          customerName: receipt.customerName,
+          customerEmail: receipt.customerEmail,
+          items: receipt.items,
+          totalAmount: receipt.totalAmount,
+          thankYouMessage: receipt.thankYouMessage || '',
+          createdAt: new Date(receipt.createdAt.seconds * 1000).toISOString(),
+          discount: receipt.discount,
+          tax: receipt.tax,
+        },
+        organization: {
+          companyName: orgData.companyName,
+          email: orgData.email,
+          address: orgData.address,
+        }
+      };
+
+      const result = await sendReceiptAction(flowInput);
+
+      if (result.success) {
+        toast({
+          title: 'Email Sent!',
+          description: `Receipt has been resent to ${receipt.customerEmail}`,
+          className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
+        });
+      } else {
+        toast({
+          title: 'Email Failed',
+          description: result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error resending email:', error);
+      toast({
+        title: 'Error',
+        description: 'Failed to resend email. Please try again.',
+        variant: 'destructive',
+      });
+    } finally {
+      setIsSendingEmail(false);
+    }
+  };
+  
+  const handleResendSMS = () => {
+    setIsSendingSMS(true);
+    setTimeout(() => {
+      toast({
+        title: 'Feature In Development',
+        description: 'SMS functionality requires backend setup (Firebase Functions) to be fully functional.',
+      });
+      setIsSendingSMS(false);
+    }, 500);
   };
   
   const formatTimestamp = (ts: any, timeFormat: string = 'MMMM dd, yyyy') => {
@@ -80,7 +165,7 @@ export default function ReceiptDetailsPage() {
     return format(date, timeFormat);
   }
 
-  if (isUserLoading || isReceiptLoading || !receipt) {
+  if (isUserLoading || isReceiptLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -89,6 +174,10 @@ export default function ReceiptDetailsPage() {
         </div>
       </div>
     );
+  }
+  
+  if (!receipt) {
+    return null; // Will redirect via useEffect
   }
 
   const subtotal = receipt.items.reduce(
@@ -102,15 +191,55 @@ export default function ReceiptDetailsPage() {
   return (
     <div className="container mx-auto py-8 max-w-4xl">
       {/* Header - Don't print */}
-      <div className="flex items-center justify-between mb-6 print:hidden">
+      <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 print:hidden gap-4">
         <Button variant="ghost" asChild>
           <Link href="/receipts">
             <ArrowLeft className="mr-2 h-4 w-4" />
             Back to Receipts
           </Link>
         </Button>
-        <div className="flex gap-2">
-          <Button variant="outline" size="sm" onClick={handlePrint}>
+        <div className="flex flex-wrap gap-2 w-full sm:w-auto">
+          <Button 
+            variant="outline" 
+            size="sm" 
+            onClick={handleResendEmail}
+            disabled={isSendingEmail}
+            className="flex-1 sm:flex-initial"
+          >
+            {isSendingEmail ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Sending...
+              </>
+            ) : (
+              <>
+                <Mail className="mr-2 h-4 w-4" />
+                Resend Email
+              </>
+            )}
+          </Button>
+          {receipt.customerPhoneNumber && (
+            <Button 
+              variant="outline" 
+              size="sm" 
+              onClick={handleResendSMS}
+              disabled={isSendingSMS}
+              className="flex-1 sm:flex-initial"
+            >
+              {isSendingSMS ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  Sending...
+                </>
+              ) : (
+                <>
+                  <MessageSquare className="mr-2 h-4 w-4" />
+                  Resend SMS
+                </>
+              )}
+            </Button>
+          )}
+          <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-initial">
             <Printer className="mr-2 h-4 w-4" />
             Print
           </Button>

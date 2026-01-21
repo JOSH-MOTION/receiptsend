@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -32,8 +31,8 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-// New import for the Genkit flow
-import { sendReceipt, type SendReceiptInput } from '@/ai/flows/send-receipt-flow';
+// Import the server action instead of the Genkit flow
+import { sendReceiptAction, type SendReceiptInput } from '@/actions/send-receipt-action';
 
 
 interface Item {
@@ -211,7 +210,7 @@ export default function NewReceiptPage() {
         className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
       });
 
-      // If sendEmail is checked, call the flow
+      // If sendEmail is checked, call the server action
       if (sendEmail) {
         toast({
             title: "Sending Email...",
@@ -219,7 +218,10 @@ export default function NewReceiptPage() {
         });
 
         const flowInput: SendReceiptInput = {
-            receipt: { ...receiptData, createdAt: creationDate.toISOString() },
+            receipt: { 
+              ...receiptData, 
+              createdAt: creationDate.toISOString() 
+            },
             organization: {
                 companyName: orgData.companyName,
                 email: orgData.email,
@@ -227,7 +229,7 @@ export default function NewReceiptPage() {
             }
         };
 
-        const result = await sendReceipt(flowInput);
+        const result = await sendReceiptAction(flowInput);
 
         if (result.success) {
             toast({
@@ -581,7 +583,3 @@ export default function NewReceiptPage() {
     </div>
   );
 }
-
-    
-
-    
