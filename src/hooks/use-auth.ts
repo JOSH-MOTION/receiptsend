@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useEffect } from 'react';
@@ -32,9 +31,4 @@ export function useAuth({ required = true }: UseAuthProps = {}) {
   }, [user, isUserLoading, required, router]);
 
   return { user, isUserLoading, auth };
-}
-
-export function useUser() {
-    const { user, isUserLoading, userError } = useFirebaseUser();
-    return { user, isUserLoading, userError };
 }
