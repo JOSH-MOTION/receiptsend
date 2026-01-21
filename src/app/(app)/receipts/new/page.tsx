@@ -32,7 +32,8 @@ import {
 } from "@/components/ui/dialog"
 
 // Import the server action instead of the Genkit flow
-import { sendReceiptAction, type SendReceiptInput } from '@/actions/send-receipt-action';
+import { sendReceiptAction } from '@/actions/send-receipt-action';
+import type { SendReceiptInput } from '@/actions/receipt-types';
 
 
 interface Item {
@@ -145,7 +146,10 @@ export default function NewReceiptPage() {
   };
 
   const subtotal = items.reduce((sum, item) => sum + item.quantity * item.price, 0);
-  const total = subtotal - discount + tax;
+  const discountAmount = subtotal * (discount / 100);
+  const subtotalAfterDiscount = subtotal - discountAmount;
+  const taxAmount = subtotalAfterDiscount * (tax / 100);
+  const total = subtotalAfterDiscount + taxAmount;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -244,6 +248,13 @@ export default function NewReceiptPage() {
                 variant: "destructive",
             });
         }
+      }
+      
+      if (sendSMS) {
+        toast({
+          title: 'Feature In Development',
+          description: 'SMS sending requires backend setup (e.g., Firebase Functions) to be fully functional.',
+        });
       }
 
       router.push(`/receipts/${newReceiptRef.id}`);
@@ -483,8 +494,8 @@ export default function NewReceiptPage() {
                     disabled={!customerPhone}
                     className="border-green-500 data-[state=checked]:bg-green-600"
                   />
-                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer text-muted-foreground">
-                    Send receipt via SMS (Feature in development)
+                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">
+                    Send receipt via SMS
                   </Label>
                 </div>
               </div>
@@ -495,29 +506,30 @@ export default function NewReceiptPage() {
           {/* Calculations */}
           <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
             <CardHeader>
-              <CardTitle>Additional Charges</CardTitle>
+              <CardTitle>Summary</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="discount">Discount ($)</Label>
+                  <Label htmlFor="discount">Discount (%)</Label>
                   <Input
                     id="discount"
                     type="number"
                     min="0"
-                    step="0.01"
+                    max="100"
+                    placeholder="e.g. 10"
                     value={discount}
                     onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
                     className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                   />
                 </div>
                 <div className="space-y-2">
-                  <Label htmlFor="tax">Tax ($)</Label>
+                  <Label htmlFor="tax">Tax (%)</Label>
                   <Input
                     id="tax"
                     type="number"
                     min="0"
-                    step="0.01"
+                    placeholder="e.g. 8.5"
                     value={tax}
                     onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
                     className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
@@ -531,15 +543,19 @@ export default function NewReceiptPage() {
                   <span>${subtotal.toFixed(2)}</span>
                 </div>
                 {discount > 0 && (
-                  <div className="flex justify-between text-sm text-green-600">
-                    <span>Discount</span>
-                    <span>-${discount.toFixed(2)}</span>
+                  <div className="flex justify-between text-sm text-destructive">
+                    <span>Discount ({discount}%)</span>
+                    <span>-${discountAmount.toFixed(2)}</span>
                   </div>
                 )}
+                 <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Subtotal after discount</span>
+                  <span>${subtotalAfterDiscount.toFixed(2)}</span>
+                </div>
                 {tax > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax</span>
-                    <span>+${tax.toFixed(2)}</span>
+                    <span className="text-muted-foreground">Tax ({tax}%)</span>
+                    <span>+${taxAmount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-xl font-bold pt-2 border-t border-green-200 dark:border-green-900">
