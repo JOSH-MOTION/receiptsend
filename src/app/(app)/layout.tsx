@@ -1,7 +1,7 @@
 'use client';
 
 import { AppShell } from "@/components/app-shell";
-import { useAuth } from "@/hooks/use-auth-new";
+import { useAuth } from "@/hooks/use-auth";
 import { Skeleton } from "@/components/ui/skeleton";
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {

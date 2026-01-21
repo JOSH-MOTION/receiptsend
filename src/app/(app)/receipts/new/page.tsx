@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { Plus, Trash2, ArrowLeft, Send, Loader2 } from "lucide-react";
+import { Plus, Trash2, ArrowLeft, Send, Loader2, MessageSquare, Save } from "lucide-react";
 import Link from "next/link";
 
 import { Button } from "@/components/ui/button";
@@ -11,6 +11,24 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { useToast } from "@/hooks/use-toast";
 import { Checkbox } from "@/components/ui/checkbox";
+import { Textarea } from "@/components/ui/textarea";
+import { 
+  Select, 
+  SelectContent, 
+  SelectItem, 
+  SelectTrigger, 
+  SelectValue 
+} from "@/components/ui/select";
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import { useUser } from "@/firebase";
 
 interface Item {
   name: string;
@@ -18,9 +36,16 @@ interface Item {
   price: number;
 }
 
+interface Template {
+  _id: string;
+  name: string;
+  content: string;
+}
+
 export default function NewReceiptPage() {
   const router = useRouter();
   const { toast } = useToast();
+  const { user } = useUser();
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [customerName, setCustomerName] = useState("");
@@ -35,6 +60,69 @@ export default function NewReceiptPage() {
   
   const [discount, setDiscount] = useState(0);
   const [tax, setTax] = useState(0);
+
+  // New state for templates and thank you message
+  const [thankYouMessage, setThankYouMessage] = useState("Thank you for your business!");
+  const [templates, setTemplates] = useState<Template[]>([]);
+  const [isTemplatesLoading, setIsTemplatesLoading] = useState(true);
+  const [isSaveTemplateOpen, setIsSaveTemplateOpen] = useState(false);
+  const [newTemplateName, setNewTemplateName] = useState("");
+  const [isSavingTemplate, setIsSavingTemplate] = useState(false);
+
+  useEffect(() => {
+    if (user) {
+      fetchTemplates();
+    }
+  }, [user]);
+
+  const fetchTemplates = async () => {
+    if (!user) return;
+    setIsTemplatesLoading(true);
+    try {
+      const response = await fetch('/api/templates?type=receipt_thank_you', {
+        headers: { 'X-User-UID': user.uid },
+      });
+      if (response.ok) {
+        setTemplates(await response.json());
+      }
+    } catch (error) {
+      console.error("Failed to fetch templates", error);
+      toast({ title: "Error", description: "Could not load templates.", variant: "destructive" });
+    } finally {
+      setIsTemplatesLoading(false);
+    }
+  };
+
+  const handleSaveTemplate = async () => {
+    if (!user || !newTemplateName.trim() || !thankYouMessage.trim()) {
+      toast({ title: "Error", description: "Template name and message cannot be empty.", variant: "destructive" });
+      return;
+    }
+    setIsSavingTemplate(true);
+    try {
+      const response = await fetch('/api/templates', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'X-User-UID': user.uid },
+        body: JSON.stringify({
+          name: newTemplateName,
+          content: thankYouMessage,
+          type: 'receipt_thank_you',
+        }),
+      });
+      if (response.ok) {
+        toast({ title: "Success", description: `Template "${newTemplateName}" saved.` });
+        setNewTemplateName("");
+        setIsSaveTemplateOpen(false);
+        fetchTemplates(); // Refresh template list
+      } else {
+        throw new Error('Failed to save template');
+      }
+    } catch (error) {
+      toast({ title: "Error", description: "Could not save template.", variant: "destructive" });
+    } finally {
+      setIsSavingTemplate(false);
+    }
+  };
 
   const addItem = () => {
     setItems([...items, { name: "", quantity: 1, price: 0 }]);
@@ -55,6 +143,7 @@ export default function NewReceiptPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (!user) return;
     
     if (!customerName || !customerEmail) {
       toast({
@@ -79,7 +168,7 @@ export default function NewReceiptPage() {
     try {
       const response = await fetch("/api/receipts", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "X-User-UID": user.uid },
         body: JSON.stringify({
           customerName,
           customerEmail,
@@ -88,6 +177,9 @@ export default function NewReceiptPage() {
           discount,
           tax,
           totalAmount: total,
+          thankYouMessage, // Include thank you message
+          sendEmail,
+          sendSMS
         }),
       });
 
@@ -162,17 +254,6 @@ export default function NewReceiptPage() {
                   required
                   className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                 />
-                <div className="flex items-center gap-2 mt-2">
-                  <Checkbox
-                    id="sendEmail"
-                    checked={sendEmail}
-                    onCheckedChange={(checked) => setSendEmail(checked as boolean)}
-                    className="border-green-500 data-[state=checked]:bg-green-600"
-                  />
-                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
-                    Send receipt via email
-                  </Label>
-                </div>
               </div>
 
               <div className="space-y-2">
@@ -185,22 +266,10 @@ export default function NewReceiptPage() {
                   onChange={(e) => setCustomerPhone(e.target.value)}
                   className="border-green-200 dark:border-green-900 focus-visible:ring-green-500"
                 />
-                <div className="flex items-center gap-2 mt-2">
-                  <Checkbox
-                    id="sendSMS"
-                    checked={sendSMS}
-                    onCheckedChange={(checked) => setSendSMS(checked as boolean)}
-                    disabled={!customerPhone}
-                    className="border-green-500 data-[state=checked]:bg-green-600"
-                  />
-                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">
-                    Send receipt via SMS
-                  </Label>
-                </div>
               </div>
             </CardContent>
           </Card>
-
+          
           {/* Items */}
           <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
             <CardHeader>
@@ -267,6 +336,107 @@ export default function NewReceiptPage() {
               </Button>
             </CardContent>
           </Card>
+          
+          {/* Message & Delivery */}
+          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+            <CardHeader>
+              <CardTitle>Message & Delivery</CardTitle>
+              <CardDescription>Customize the thank you message and choose delivery channels.</CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-6">
+              <div className="space-y-2">
+                <Label htmlFor="thank-you-message">Thank You Message</Label>
+                 <div className="flex gap-2">
+                  <Select
+                    onValueChange={(value) => setThankYouMessage(value)}
+                    disabled={isTemplatesLoading || templates.length === 0}
+                  >
+                    <SelectTrigger className="w-[180px]">
+                      <SelectValue placeholder="Use a template" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {isTemplatesLoading ? (
+                        <SelectItem value="loading" disabled>Loading...</SelectItem>
+                      ) : (
+                        templates.map((template) => (
+                          <SelectItem key={template._id} value={template.content}>
+                            {template.name}
+                          </SelectItem>
+                        ))
+                      )}
+                    </SelectContent>
+                  </Select>
+                  <Textarea
+                    id="thank-you-message"
+                    placeholder="e.g., Thank you for your business!"
+                    value={thankYouMessage}
+                    onChange={(e) => setThankYouMessage(e.target.value)}
+                    className="flex-1"
+                    rows={3}
+                  />
+                  <Dialog open={isSaveTemplateOpen} onOpenChange={setIsSaveTemplateOpen}>
+                    <DialogTrigger asChild>
+                       <Button type="button" variant="outline" size="icon" title="Save as template">
+                        <Save className="h-4 w-4" />
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Save Message as Template</DialogTitle>
+                        <DialogDescription>
+                          Give this template a name to easily reuse it later.
+                        </DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-2">
+                        <Label htmlFor="template-name">Template Name</Label>
+                        <Input
+                          id="template-name"
+                          value={newTemplateName}
+                          onChange={(e) => setNewTemplateName(e.target.value)}
+                          placeholder="e.g., Holiday Greeting"
+                        />
+                      </div>
+                       <DialogFooter>
+                        <Button variant="ghost" onClick={() => setIsSaveTemplateOpen(false)}>Cancel</Button>
+                        <Button onClick={handleSaveTemplate} disabled={isSavingTemplate}>
+                          {isSavingTemplate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Save Template
+                        </Button>
+                      </DialogFooter>
+                    </DialogContent>
+                  </Dialog>
+                </div>
+              </div>
+
+              <div className="space-y-4">
+                <Label>Delivery Options</Label>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="sendEmail"
+                    checked={sendEmail}
+                    onCheckedChange={(checked) => setSendEmail(checked as boolean)}
+                    className="border-green-500 data-[state=checked]:bg-green-600"
+                  />
+                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
+                    Send receipt via email
+                  </Label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Checkbox
+                    id="sendSMS"
+                    checked={sendSMS}
+                    onCheckedChange={(checked) => setSendSMS(checked as boolean)}
+                    disabled={!customerPhone}
+                    className="border-green-500 data-[state=checked]:bg-green-600"
+                  />
+                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">
+                    Send receipt via SMS
+                  </Label>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
 
           {/* Calculations */}
           <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">

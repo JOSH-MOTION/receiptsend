@@ -1,16 +1,16 @@
-
 "use client";
 
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
-import { useUser } from '@/firebase';
+import { useUser as useFirebaseUser, useFirebase } from '@/firebase';
 
 interface UseAuthProps {
   required?: boolean;
 }
 
 export function useAuth({ required = true }: UseAuthProps = {}) {
-  const { user, isUserLoading } = useUser();
+  const { user, isUserLoading } = useFirebaseUser();
+  const { auth } = useFirebase();
   const router = useRouter();
 
   useEffect(() => {
@@ -30,5 +30,5 @@ export function useAuth({ required = true }: UseAuthProps = {}) {
 
   }, [user, isUserLoading, required, router]);
 
-  return { user, isUserLoading };
+  return { user, isUserLoading, auth };
 }

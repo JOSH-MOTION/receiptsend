@@ -1,28 +1,16 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
-import mongoose from 'mongoose';
 import { Contact } from '@/lib/models';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import connectDB from '@/lib/mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI;
-
-async function connectDB() {
-  if (mongoose.connection.readyState >= 1) {
-    return;
-  }
-  return mongoose.connect(MONGODB_URI!);
-}
 
 // GET all contacts for the organization
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const organizationId = (session.user as any).organizationId;
+    
 
     await connectDB();
 
@@ -43,13 +31,11 @@ export async function GET(req: NextRequest) {
 // POST create a new contact
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const organizationId = (session.user as any).organizationId;
+    
     const data = await req.json();
 
     await connectDB();
@@ -73,13 +59,11 @@ export async function POST(req: NextRequest) {
 // DELETE a contact
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    
-    if (!session?.user) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const organizationId = (session.user as any).organizationId;
+    
     const { searchParams } = new URL(req.url);
     const contactId = searchParams.get('id');
 

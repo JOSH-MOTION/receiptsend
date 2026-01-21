@@ -1,55 +1,49 @@
 // lib/super-admin.ts
-import { getServerSession } from 'next-auth';
 import { User } from '@/lib/models';
 import connectDB from '@/lib/mongodb';
 
 /**
- * Check if the current user is a super admin
- * Uses both environment variable and database role
+ * Check if the user is a super admin based on their UID.
+ * This function is designed for server-side use in API routes.
+ * @param uid The Firebase UID of the user to check. Can be null.
  */
-export async function isSuperAdmin(): Promise<boolean> {
-  const session = await getServerSession();
-  
-  if (!session || !session.user?.email) {
+export async function isSuperAdmin(uid: string | null): Promise<boolean> {
+  if (!uid) {
     return false;
   }
-
-  const userEmail = session.user.email;
-
-  // Method 1: Check environment variable (faster, recommended for production)
-  const superAdminEmails = process.env.SUPER_ADMIN_EMAILS?.split(',').map(e => e.trim()) || [];
-  if (superAdminEmails.includes(userEmail)) {
-    console.log('✅ Super admin access granted (via environment variable):', userEmail);
-    return true;
-  }
-
-  // Method 2: Check database role (more flexible, can be managed through UI)
+  
+  // Find the user in your MongoDB database by their Firebase UID.
   try {
     await connectDB();
-    const user = await User.findOne({ email: userEmail });
+    const user = await User.findOne({ uid: uid });
+
+    if (!user || !user.email) {
+      console.log('❌ Super admin check failed: User not found in DB for UID:', uid);
+      return false;
+    }
     
-    if (user?.role === 'superadmin') {
+    const userEmail = user.email;
+
+    // Method 1: Check environment variable (primary method).
+    const superAdminEmails = process.env.SUPER_ADMIN_EMAILS?.split(',').map(e => e.trim().toLowerCase()) || [];
+    if (superAdminEmails.includes(userEmail.toLowerCase())) {
+      console.log('✅ Super admin access granted (via environment variable):', userEmail);
+      return true;
+    }
+
+    // Method 2: Check 'role' field in the database (secondary method).
+    if (user.role === 'superadmin') {
       console.log('✅ Super admin access granted (via database role):', userEmail);
       return true;
     }
   } catch (error) {
-    console.error('❌ Error checking super admin status:', error);
+     console.error('❌ Error during super admin check in database:', error);
+     return false;
   }
 
-  console.log('❌ Super admin access denied:', userEmail);
+  // If neither check passes, deny access.
+  console.log('❌ Super admin access denied for:', uid);
   return false;
-}
-
-/**
- * Require super admin access - throws error if not authorized
- * Use this in API routes to protect admin endpoints
- */
-export async function requireSuperAdmin(): Promise<void> {
-  const isAdmin = await isSuperAdmin();
-  
-  if (!isAdmin) {
-    throw new Error('Unauthorized: Super admin access required');
-  }
 }
 
 /**

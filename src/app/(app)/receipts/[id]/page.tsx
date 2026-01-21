@@ -22,6 +22,7 @@ import { Badge } from '@/components/ui/badge';
 import { format } from 'date-fns';
 import Link from 'next/link';
 import { useToast } from '@/hooks/use-toast';
+import { useUser } from '@/firebase';
 
 interface ReceiptItem {
   name: string;
@@ -42,25 +43,29 @@ interface Receipt {
   totalAmount: number;
   pdfUrl?: string;
   createdAt: string;
+  thankYouMessage?: string;
 }
 
 export default function ReceiptDetailsPage() {
   const params = useParams();
   const router = useRouter();
+  const { user } = useUser();
   const { toast } = useToast();
   const [receipt, setReceipt] = useState<Receipt | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isDownloading, setIsDownloading] = useState(false);
 
   useEffect(() => {
-    if (params.id) {
+    if (params.id && user) {
       fetchReceipt();
     }
-  }, [params.id]);
+  }, [params.id, user]);
 
   const fetchReceipt = async () => {
     try {
-      const response = await fetch(`/api/receipts/${params.id}`);
+      const response = await fetch(`/api/receipts/${params.id}`, {
+          headers: { 'X-User-UID': user!.uid }
+      });
       if (response.ok) {
         const data = await response.json();
         setReceipt(data);
@@ -87,20 +92,16 @@ export default function ReceiptDetailsPage() {
   };
 
   const handleDownloadPDF = async () => {
-    if (!receipt || isDownloading) return;
+    if (!receipt || isDownloading || !user) return;
 
     setIsDownloading(true);
     try {
-      console.log('📥 Downloading PDF for receipt:', receipt._id);
-      
-      const response = await fetch(`/api/receipts/${receipt._id}/pdf`);
-      
-      console.log('PDF Response status:', response.status);
-      console.log('PDF Response headers:', Object.fromEntries(response.headers.entries()));
+      const response = await fetch(`/api/receipts/${receipt._id}/pdf`, {
+          headers: { 'X-User-UID': user.uid }
+      });
       
       if (response.ok) {
         const blob = await response.blob();
-        console.log('PDF Blob size:', blob.size, 'bytes');
         
         if (blob.size === 0) {
           throw new Error('PDF is empty');
@@ -121,16 +122,13 @@ export default function ReceiptDetailsPage() {
         });
       } else {
         const errorText = await response.text();
-        console.error('PDF download failed:', errorText);
-        
         let errorMessage = 'Failed to download PDF';
         try {
           const errorJson = JSON.parse(errorText);
           errorMessage = errorJson.error || errorMessage;
         } catch (e) {
-          errorMessage = errorText || errorMessage;
+          // It's not JSON, use the text directly
         }
-        
         throw new Error(errorMessage);
       }
     } catch (error: any) {
@@ -150,12 +148,12 @@ export default function ReceiptDetailsPage() {
   };
 
   const handleResendEmail = async () => {
-    if (!receipt) return;
+    if (!receipt || !user) return;
 
     try {
       const response = await fetch(`/api/receipts/${receipt._id}/resend`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-UID': user.uid },
         body: JSON.stringify({ type: 'email' }),
       });
 
@@ -178,12 +176,12 @@ export default function ReceiptDetailsPage() {
   };
 
   const handleResendSMS = async () => {
-    if (!receipt) return;
+    if (!receipt || !user) return;
 
     try {
       const response = await fetch(`/api/receipts/${receipt._id}/resend`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', 'X-User-UID': user.uid },
         body: JSON.stringify({ type: 'sms' }),
       });
 
@@ -380,7 +378,7 @@ export default function ReceiptDetailsPage() {
 
           <div className="mt-8 p-4 bg-muted/50 rounded-lg text-center">
             <p className="text-sm text-muted-foreground">
-              Thank you for your business!
+              {receipt.thankYouMessage || 'Thank you for your business!'}
             </p>
           </div>
         </CardContent>

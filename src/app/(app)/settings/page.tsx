@@ -1,13 +1,12 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
-import { useSession } from "next-auth/react";
-import { Building2, Mail, Palette, Smartphone, CreditCard, Save, Check } from "lucide-react";
-
+import { useRouter, useSearchParams } from 'next/navigation';
+import { Building2, Mail, Palette, Smartphone, CreditCard, Save, Check, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Card,
   CardContent,
@@ -17,42 +16,71 @@ import {
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
+import { useToast } from "@/hooks/use-toast";
+import { smsPricingBundles, formatCurrency } from "@/lib/sms-pricing-updated";
+import { useUser } from "@/firebase";
 
 interface Organization {
-  name: string;
-  email: string;
-  phone: string;
-  address: string;
-  logo?: string;
-  primaryColor: string;
-  secondaryColor: string;
-  smsCredits: number;
+  _id?: string;
+  companyName?: string;
+  email?: string;
+  phoneNumber?: string;
+  address?: string;
+  primaryColor?: string;
+  secondaryColor?: string;
+  smsBalance?: number;
+  smsSenderId?: string;
+  totalSpent?: number;
+  totalPurchased?: number;
+  createdAt?: string;
 }
 
 export default function SettingsPage() {
-  const { data: session } = useSession();
-  const [organization, setOrganization] = useState<Organization>({
-    name: "",
-    email: "",
-    phone: "",
-    address: "",
-    primaryColor: "#16a34a",
-    secondaryColor: "#10b981",
-    smsCredits: 0,
-  });
+  const { user } = useUser();
+  const router = useRouter();
+  const searchParams = useSearchParams();
+  const { toast } = useToast();
+  
+  const [organization, setOrganization] = useState<Organization>({});
   const [isSaving, setIsSaving] = useState(false);
   const [savedSuccess, setSavedSuccess] = useState(false);
   const [isLoading, setIsLoading] = useState(true);
+  const [isPurchasing, setIsPurchasing] = useState<string | null>(null);
 
   useEffect(() => {
-    if (session) {
+    if (user) {
       fetchOrganization();
     }
-  }, [session]);
+  }, [user]);
+  
+  useEffect(() => {
+    const paymentStatus = searchParams.get('payment');
+    const units = searchParams.get('units');
+
+    if (paymentStatus === 'success') {
+      toast({
+        title: 'Payment Successful!',
+        description: `Your account has been credited with ${units} SMS units.`,
+        className: 'bg-green-100 dark:bg-green-900 border-green-300'
+      });
+      fetchOrganization();
+      router.replace('/settings?tab=sms'); // Clean URL
+    } else if (paymentStatus === 'failed') {
+      toast({
+        title: 'Payment Failed',
+        description: 'Your payment was not successful. Please try again.',
+        variant: 'destructive',
+      });
+      router.replace('/settings?tab=sms'); // Clean URL
+    }
+  }, [searchParams, toast, router]);
 
   const fetchOrganization = async () => {
+    if (!user) return;
     try {
-      const response = await fetch("/api/organization");
+      const response = await fetch("/api/organization", {
+        headers: { 'X-User-UID': user.uid }
+      });
       if (response.ok) {
         const data = await response.json();
         setOrganization(data);
@@ -65,45 +93,76 @@ export default function SettingsPage() {
   };
 
   const handleSave = async () => {
+    if (!user) return;
     setIsSaving(true);
     try {
+      // Sanitize data before sending: remove immutable or server-managed fields.
+      const { 
+        _id, 
+        createdAt, 
+        smsBalance, 
+        totalSpent, 
+        totalPurchased, 
+        ...updateData 
+      } = organization;
+
       const response = await fetch("/api/organization", {
         method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(organization),
+        headers: { 
+          "Content-Type": "application/json",
+          'X-User-UID': user.uid
+        },
+        body: JSON.stringify(updateData),
       });
 
       if (response.ok) {
         setSavedSuccess(true);
+        toast({ title: 'Success', description: 'Your settings have been saved.' });
         setTimeout(() => setSavedSuccess(false), 3000);
+      } else {
+        const error = await response.json();
+        throw new Error(error.error || "Failed to save settings");
       }
-    } catch (error) {
-      console.error("Error saving organization:", error);
+    } catch (error: any) {
+      toast({ title: 'Error', description: error.message, variant: 'destructive' });
     } finally {
       setIsSaving(false);
     }
   };
 
-  const handlePurchaseSMS = async (bundleSize: number, price: number) => {
+  const handlePurchase = async (bundleId: string) => {
+    if (!user) return;
+    setIsPurchasing(bundleId);
     try {
-      const response = await fetch("/api/sms/purchase", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ bundleSize, price }),
-      });
+        const response = await fetch('/api/paystack/initialize', {
+            method: 'POST',
+            headers: { 
+              'Content-Type': 'application/json',
+              'X-User-UID': user.uid
+            },
+            body: JSON.stringify({ bundleId }),
+        });
 
-      if (response.ok) {
-        fetchOrganization();
-      }
-    } catch (error) {
-      console.error("Error purchasing SMS credits:", error);
+        const data = await response.json();
+
+        if (response.ok && data.authorizationUrl) {
+            window.location.href = data.authorizationUrl;
+        } else {
+            throw new Error(data.error || 'Failed to start payment.');
+        }
+    } catch (error: any) {
+        toast({
+            title: 'Payment Error',
+            description: error.message,
+            variant: 'destructive',
+        });
+        setIsPurchasing(null);
     }
   };
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
-        {/* Header */}
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
             Settings
@@ -113,279 +172,130 @@ export default function SettingsPage() {
           </p>
         </div>
 
-        {/* Tabs - Responsive Grid */}
         <Tabs defaultValue="organization" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-5 gap-2 bg-green-100/50 dark:bg-green-950/30 p-1 h-auto">
-            <TabsTrigger value="organization" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
-              <Building2 className="h-4 w-4" />
-              <span className="hidden sm:inline">Organization</span>
-              <span className="sm:hidden">Org</span>
-            </TabsTrigger>
-            <TabsTrigger value="email" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
-              <Mail className="h-4 w-4" />
-              Email
-            </TabsTrigger>
-            <TabsTrigger value="sms" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
-              <Smartphone className="h-4 w-4" />
-              SMS
-            </TabsTrigger>
-            <TabsTrigger value="branding" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
-              <Palette className="h-4 w-4" />
-              <span className="hidden sm:inline">Branding</span>
-              <span className="sm:hidden">Brand</span>
-            </TabsTrigger>
-            <TabsTrigger value="billing" className="flex items-center gap-2 data-[state=active]:bg-white dark:data-[state=active]:bg-green-900 text-xs sm:text-sm py-2 px-2 sm:px-4">
-              <CreditCard className="h-4 w-4" />
-              <span className="hidden sm:inline">Billing</span>
-              <span className="sm:hidden">Bill</span>
-            </TabsTrigger>
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-4 gap-2 bg-green-100/50 dark:bg-green-950/30 p-1 h-auto">
+            <TabsTrigger value="organization"><Building2 className="h-4 w-4 mr-2" />Organization</TabsTrigger>
+            <TabsTrigger value="sms"><Smartphone className="h-4 w-4 mr-2" />SMS</TabsTrigger>
+            <TabsTrigger value="branding"><Palette className="h-4 w-4 mr-2" />Branding</TabsTrigger>
+            <TabsTrigger value="billing"><CreditCard className="h-4 w-4 mr-2" />Billing</TabsTrigger>
           </TabsList>
-
-          {/* Organization Tab */}
-          <TabsContent value="organization" className="space-y-6">
+          
+          <TabsContent value="organization">
             <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
               <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Organization Details</CardTitle>
-                <CardDescription className="text-sm">Update your business information</CardDescription>
+                <CardTitle>Organization Details</CardTitle>
+                <CardDescription>Update your business information.</CardDescription>
               </CardHeader>
-              <CardContent className="space-y-4">
-                {isLoading ? (
-                  <div className="space-y-4 animate-pulse">
-                    {[...Array(4)].map((_, i) => (
-                      <div key={i} className="space-y-2">
-                        <div className="h-4 bg-green-200 dark:bg-green-900 rounded w-24" />
-                        <div className="h-10 bg-green-200 dark:bg-green-900 rounded" />
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <>
-                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                      <div className="space-y-2">
-                        <Label htmlFor="orgName">Organization Name</Label>
-                        <Input
-                          id="orgName"
-                          value={organization.name}
-                          onChange={(e) => setOrganization({ ...organization, name: e.target.value })}
-                          className="border-green-200 dark:border-green-900"
-                        />
-                      </div>
-                      <div className="space-y-2">
-                        <Label htmlFor="orgEmail">Email</Label>
-                        <Input
-                          id="orgEmail"
-                          type="email"
-                          value={organization.email}
-                          onChange={(e) => setOrganization({ ...organization, email: e.target.value })}
-                          className="border-green-200 dark:border-green-900"
-                        />
-                      </div>
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="orgPhone">Phone</Label>
-                      <Input
-                        id="orgPhone"
-                        type="tel"
-                        value={organization.phone}
-                        onChange={(e) => setOrganization({ ...organization, phone: e.target.value })}
-                        className="border-green-200 dark:border-green-900"
-                      />
-                    </div>
-
-                    <div className="space-y-2">
-                      <Label htmlFor="orgAddress">Address</Label>
-                      <Textarea
-                        id="orgAddress"
-                        value={organization.address}
-                        onChange={(e) => setOrganization({ ...organization, address: e.target.value })}
-                        className="border-green-200 dark:border-green-900 min-h-24"
-                      />
-                    </div>
-
-                    <Button
-                      onClick={handleSave}
-                      disabled={isSaving}
-                      className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                    >
-                      {savedSuccess ? (
-                        <>
-                          <Check className="h-4 w-4 mr-2" />
-                          Saved!
-                        </>
-                      ) : (
-                        <>
-                          <Save className="h-4 w-4 mr-2" />
-                          {isSaving ? "Saving..." : "Save Changes"}
-                        </>
-                      )}
-                    </Button>
-                  </>
-                )}
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Email Tab */}
-          <TabsContent value="email" className="space-y-6">
-            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Email Settings</CardTitle>
-                <CardDescription className="text-sm">Configure email delivery options</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="p-4 bg-green-50 dark:bg-green-950/30 rounded-lg border border-green-200 dark:border-green-900">
-                  <p className="text-sm text-green-700 dark:text-green-400">
-                    Email delivery is configured and ready to use. All receipts will be sent from your organization email.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* SMS Tab */}
-          <TabsContent value="sms" className="space-y-6">
-            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-              <CardHeader>
-                <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
-                  <div>
-                    <CardTitle className="text-xl sm:text-2xl">SMS Credits</CardTitle>
-                    <CardDescription className="text-sm">Purchase credits to send receipts via SMS</CardDescription>
-                  </div>
-                  <Badge className="bg-green-600 text-white text-base sm:text-lg px-4 py-2">
-                    {organization.smsCredits} Credits
-                  </Badge>
-                </div>
-              </CardHeader>
-              <CardContent>
-                <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
-                  {[
-                    { credits: 100, price: 10, popular: false },
-                    { credits: 500, price: 45, popular: true },
-                    { credits: 1000, price: 80, popular: false },
-                  ].map((bundle) => (
-                    <Card
-                      key={bundle.credits}
-                      className={`relative overflow-hidden ${
-                        bundle.popular
-                          ? "border-2 border-green-500 shadow-lg"
-                          : "border border-green-200 dark:border-green-900"
-                      }`}
-                    >
-                      {bundle.popular && (
-                        <div className="absolute top-0 right-0 bg-gradient-to-r from-green-600 to-emerald-600 text-white text-xs px-3 py-1 rounded-bl-lg">
-                          Popular
-                        </div>
-                      )}
-                      <CardHeader className="pb-4">
-                        <CardTitle className="text-2xl sm:text-3xl font-bold text-center">{bundle.credits}</CardTitle>
-                        <CardDescription className="text-center text-sm">SMS Credits</CardDescription>
-                      </CardHeader>
-                      <CardContent className="space-y-4">
-                        <div className="text-center">
-                          <div className="text-3xl sm:text-4xl font-bold text-green-600">${bundle.price}</div>
-                          <p className="text-xs text-muted-foreground mt-1">
-                            ${(bundle.price / bundle.credits).toFixed(2)} per SMS
-                          </p>
-                        </div>
-                        <Button
-                          onClick={() => handlePurchaseSMS(bundle.credits, bundle.price)}
-                          className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                        >
-                          Purchase
-                        </Button>
-                      </CardContent>
-                    </Card>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-          </TabsContent>
-
-          {/* Branding Tab */}
-          <TabsContent value="branding" className="space-y-6">
-            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Brand Colors</CardTitle>
-                <CardDescription className="text-sm">Customize your receipt appearance</CardDescription>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <CardContent className="space-y-6">
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                   <div className="space-y-2">
-                    <Label htmlFor="primaryColor">Primary Color</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="primaryColor"
-                        type="color"
-                        value={organization.primaryColor}
-                        onChange={(e) => setOrganization({ ...organization, primaryColor: e.target.value })}
-                        className="h-10 w-20 border-green-200 dark:border-green-900"
-                      />
-                      <Input
-                        value={organization.primaryColor}
-                        onChange={(e) => setOrganization({ ...organization, primaryColor: e.target.value })}
-                        className="flex-1 border-green-200 dark:border-green-900"
-                      />
-                    </div>
+                    <Label htmlFor="orgName">Organization Name</Label>
+                    <Input id="orgName" value={organization.companyName || ''} onChange={(e) => setOrganization({ ...organization, companyName: e.target.value })} />
                   </div>
                   <div className="space-y-2">
-                    <Label htmlFor="secondaryColor">Secondary Color</Label>
-                    <div className="flex gap-2">
-                      <Input
-                        id="secondaryColor"
-                        type="color"
-                        value={organization.secondaryColor}
-                        onChange={(e) => setOrganization({ ...organization, secondaryColor: e.target.value })}
-                        className="h-10 w-20 border-green-200 dark:border-green-900"
-                      />
-                      <Input
-                        value={organization.secondaryColor}
-                        onChange={(e) => setOrganization({ ...organization, secondaryColor: e.target.value })}
-                        className="flex-1 border-green-200 dark:border-green-900"
-                      />
-                    </div>
+                    <Label htmlFor="orgEmail">Contact Email</Label>
+                    <Input id="orgEmail" type="email" value={organization.email || ''} onChange={(e) => setOrganization({ ...organization, email: e.target.value })} />
                   </div>
                 </div>
-
-                <Button
-                  onClick={handleSave}
-                  disabled={isSaving}
-                  className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700"
-                >
-                  {savedSuccess ? (
-                    <>
-                      <Check className="h-4 w-4 mr-2" />
-                      Saved!
-                    </>
-                  ) : (
-                    <>
-                      <Save className="h-4 w-4 mr-2" />
-                      {isSaving ? "Saving..." : "Save Changes"}
-                    </>
-                  )}
+                <div className="space-y-2">
+                  <Label htmlFor="orgPhone">Phone Number</Label>
+                  <Input id="orgPhone" value={organization.phoneNumber || ''} onChange={(e) => setOrganization({ ...organization, phoneNumber: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="orgAddress">Address</Label>
+                  <Input id="orgAddress" value={organization.address || ''} onChange={(e) => setOrganization({ ...organization, address: e.target.value })} />
+                </div>
+                <Button onClick={handleSave} disabled={isSaving}>
+                  {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                  {isSaving ? 'Saving...' : 'Save Changes'}
                 </Button>
               </CardContent>
             </Card>
           </TabsContent>
 
-          {/* Billing Tab */}
-          <TabsContent value="billing" className="space-y-6">
-            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
-              <CardHeader>
-                <CardTitle className="text-xl sm:text-2xl">Billing Information</CardTitle>
-                <CardDescription className="text-sm">Manage your payment methods and billing</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="p-6 sm:p-8 bg-gradient-to-br from-green-50 to-emerald-50 dark:from-green-950/30 dark:to-emerald-950/30 rounded-lg border border-green-200 dark:border-green-900 text-center">
-                  <CreditCard className="h-12 w-12 sm:h-16 sm:w-16 mx-auto text-green-600 mb-4" />
-                  <h3 className="text-lg sm:text-xl font-semibold mb-2">Payment Integration Coming Soon</h3>
-                  <p className="text-sm text-muted-foreground">
-                    We're working on integrating secure payment options for your convenience.
-                  </p>
-                </div>
-              </CardContent>
-            </Card>
+          <TabsContent value="sms">
+            <div className="space-y-6">
+               <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+                <CardHeader>
+                  <CardTitle>SMS Configuration</CardTitle>
+                  <CardDescription>Set your Sender ID for outgoing SMS messages.</CardDescription>
+                </CardHeader>
+                <CardContent className="space-y-4">
+                   <div className="space-y-2">
+                    <Label htmlFor="smsSenderId">SMS Sender ID</Label>
+                    <Input 
+                        id="smsSenderId" 
+                        value={organization.smsSenderId || ''} 
+                        onChange={(e) => setOrganization({ ...organization, smsSenderId: e.target.value })}
+                        maxLength={11}
+                        placeholder="Max 11 characters"
+                    />
+                    <p className="text-xs text-muted-foreground">This is the name your customers will see. Must be 3-11 characters.</p>
+                  </div>
+                   <Button onClick={handleSave} disabled={isSaving}>
+                      {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
+                      Save Sender ID
+                    </Button>
+                </CardContent>
+              </Card>
+
+              <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+                <CardHeader>
+                  <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
+                    <div>
+                      <CardTitle>Purchase SMS Credits</CardTitle>
+                      <CardDescription>Top up your balance to send SMS receipts.</CardDescription>
+                    </div>
+                    <Badge className="bg-green-600 text-white text-lg px-4 py-2">
+                      {(organization.smsBalance || 0).toLocaleString()} Credits
+                    </Badge>
+                  </div>
+                </CardHeader>
+                <CardContent>
+                   <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
+                    {smsPricingBundles.map((bundle) => (
+                      <Card
+                        key={bundle.id}
+                        className={`flex flex-col ${bundle.popular ? "border-2 border-primary shadow-lg" : "border"}`}
+                      >
+                        {bundle.popular && (
+                          <div className="bg-primary text-primary-foreground text-xs text-center py-1 font-semibold">
+                            Most Popular
+                          </div>
+                        )}
+                        <CardHeader className="text-center">
+                          <CardTitle className="text-2xl">{bundle.name}</CardTitle>
+                          <CardDescription>{bundle.description}</CardDescription>
+                        </CardHeader>
+                        <CardContent className="flex-grow flex flex-col justify-center items-center text-center space-y-4">
+                          <div className="text-4xl font-bold">
+                            {bundle.units.toLocaleString()}
+                          </div>
+                          <div className="text-muted-foreground">SMS Credits</div>
+                          <div className="text-3xl font-bold text-primary">
+                            {formatCurrency(bundle.price)}
+                          </div>
+                          <p className="text-xs text-muted-foreground">{formatCurrency(bundle.pricePerUnit)} / SMS</p>
+                        </CardContent>
+                        <div className="p-6 pt-0">
+                          <Button 
+                            className="w-full" 
+                            onClick={() => handlePurchase(bundle.id)}
+                            disabled={isPurchasing !== null}
+                          >
+                            {isPurchasing === bundle.id ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Buy Now'}
+                          </Button>
+                        </div>
+                      </Card>
+                    ))}
+                  </div>
+                </CardContent>
+              </Card>
+            </div>
           </TabsContent>
+          
+           {/* Add other tabs content here */}
+
         </Tabs>
       </div>
     </div>

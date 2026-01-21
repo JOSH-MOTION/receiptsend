@@ -2,6 +2,7 @@ import mongoose, { Schema, Document, Model, Types } from 'mongoose';
 
 // Organization Schema
 export interface IOrganization extends Document {
+  _id: string; // Explicitly define _id to be a string
   companyName: string;
   logoUrl?: string;
   email: string;
@@ -20,6 +21,7 @@ export interface IOrganization extends Document {
 }
 
 const OrganizationSchema = new Schema<IOrganization>({
+  _id: { type: String, required: true }, // Use Firebase UID as the ID
   companyName: { type: String, required: true },
   logoUrl: { type: String },
   email: { type: String, required: true },
@@ -35,7 +37,7 @@ const OrganizationSchema = new Schema<IOrganization>({
   totalSpent: { type: Number, default: 0 },
   totalPurchased: { type: Number, default: 0 },
   createdAt: { type: Date, default: Date.now }
-});
+}, { _id: false }); // Disable default _id generation
 
 // Contact Schema
 export interface IContact extends Document {
@@ -135,16 +137,16 @@ const SmsLogSchema = new Schema<ISmsLog>({
 
 // User Schema (for authentication)
 export interface IUser extends Document {
+  uid: string; // Firebase UID
   email: string;
-  password: string;
   organizationId: string;
   role?: string;               // Added for super admin check
   createdAt: Date;
 }
 
 const UserSchema = new Schema<IUser>({
+  uid: { type: String, required: true, unique: true },
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true },
   organizationId: { type: String, required: true },
   role: { type: String, default: 'user' }, // 'user' or 'superadmin'
   createdAt: { type: Date, default: Date.now }
@@ -177,6 +179,24 @@ const TransactionSchema = new Schema<ITransaction>({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Template Schema (NEW)
+export interface ITemplate extends Document {
+  organizationId: string;
+  name: string;
+  content: string;
+  type: string; // e.g., 'receipt_thank_you'
+  createdAt: Date;
+}
+
+const TemplateSchema = new Schema<ITemplate>({
+  organizationId: { type: String, required: true, index: true },
+  name: { type: String, required: true },
+  content: { type: String, required: true },
+  type: { type: String, required: true, index: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+
 // System Error Log Schema
 export interface ISystemErrorLog extends Document {
   timestamp: Date;
@@ -200,4 +220,5 @@ export const EmailLog: Model<IEmailLog> = mongoose.models.EmailLog || mongoose.m
 export const SmsLog: Model<ISmsLog> = mongoose.models.SmsLog || mongoose.model<ISmsLog>('SmsLog', SmsLogSchema);
 export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 export const Transaction: Model<ITransaction> = mongoose.models.Transaction || mongoose.model<ITransaction>('Transaction', TransactionSchema);
+export const Template: Model<ITemplate> = mongoose.models.Template || mongoose.model<ITemplate>('Template', TemplateSchema);
 export const SystemErrorLog: Model<ISystemErrorLog> = mongoose.models.SystemErrorLog || mongoose.model<ISystemErrorLog>('SystemErrorLog', SystemErrorLogSchema);

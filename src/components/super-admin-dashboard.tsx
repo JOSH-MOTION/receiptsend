@@ -1,6 +1,6 @@
 'use client';
 
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Badge } from '@/components/ui/badge';
@@ -20,8 +20,6 @@ import {
   Calendar,
   CreditCard,
   Smartphone,
-  BarChart3,
-  Activity,
 } from 'lucide-react';
 import { 
   Table,
@@ -38,93 +36,206 @@ import {
   SelectTrigger,
   SelectValue,
 } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
+import { format } from 'date-fns';
+import { useUser } from '@/firebase';
 
 export default function SuperAdminDashboard() {
-  const [stats, setStats] = useState({
-    totalRevenue: 0,
-    totalOrganizations: 0,
-    totalCreditsIssued: 0,
-    totalSMSSent: 0,
-    quickSMSBalance: 0,
-    todayRevenue: 0,
-    todaySMS: 0,
-    monthlyRevenue: 0,
-    activeOrganizations: 0,
-  });
-
-  const [organizations, setOrganizations] = useState([]);
-  const [transactions, setTransactions] = useState([]);
-  const [smsLogs, setSmsLogs] = useState([]);
+  const { user, isUserLoading: isAuthLoading } = useUser();
+  const { toast } = useToast();
+  const [stats, setStats] = useState<any>({});
+  const [organizations, setOrganizations] = useState<any[]>([]);
+  const [transactions, setTransactions] = useState<any[]>([]);
+  const [smsLogs, setSmsLogs] = useState<any[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [isAuthorized, setIsAuthorized] = useState(false);
+  const [isCheckingAuth, setIsCheckingAuth] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
   const [dateFilter, setDateFilter] = useState('all');
 
   useEffect(() => {
-    fetchAdminData();
-  }, []);
+    const checkAuthAndFetchData = async () => {
+      if (isAuthLoading) return; // Wait until Firebase auth state is known
 
-  const fetchAdminData = async () => {
+      if (!user) {
+        setIsCheckingAuth(false);
+        setIsAuthorized(false);
+        return;
+      }
+      
+      setIsCheckingAuth(true);
+      
+      try {
+        const headers = { 'X-User-UID': user.uid };
+        const authCheckRes = await fetch('/api/admin/stats', { headers });
+
+        if (authCheckRes.status === 403) {
+          setIsAuthorized(false);
+          toast({ title: 'Access Denied', description: 'You do not have permission to view this page.', variant: 'destructive' });
+          return;
+        }
+        
+        if (!authCheckRes.ok) {
+           throw new Error('Failed to verify authorization.');
+        }
+
+        setIsAuthorized(true);
+        const statsData = await authCheckRes.json();
+        
+        await fetchAllAdminData(statsData);
+
+      } catch (error) {
+        console.error("Authorization check failed:", error);
+        setIsAuthorized(false);
+      } finally {
+        setIsCheckingAuth(false);
+      }
+    };
+    
+    checkAuthAndFetchData();
+  }, [user, isAuthLoading]);
+
+  const fetchAllAdminData = async (initialStats: any) => {
+    if (!user) return;
     setIsLoading(true);
     try {
-      // Fetch all admin data
-      const [statsRes, orgsRes, transRes, smsRes] = await Promise.all([
-        fetch('/api/admin/stats'),
-        fetch('/api/admin/organizations'),
-        fetch('/api/admin/transactions'),
-        fetch('/api/admin/sms-logs'),
+      const headers = { 'X-User-UID': user.uid };
+      const [orgsRes, transRes, smsRes, quickSmsRes] = await Promise.all([
+        fetch('/api/admin/organizations', { headers }),
+        fetch('/api/admin/transactions', { headers }),
+        fetch('/api/admin/sms-logs', { headers }),
+        fetch('/api/admin/quicksms-balance', { headers }),
       ]);
 
-      const statsData = await statsRes.json();
+      if (!orgsRes.ok || !transRes.ok || !smsRes.ok || !quickSmsRes.ok) {
+        throw new Error('One or more admin data endpoints failed.');
+      }
+
       const orgsData = await orgsRes.json();
       const transData = await transRes.json();
       const smsData = await smsRes.json();
+      const quickSmsData = await quickSmsRes.json();
 
-      setStats(statsData);
+      setStats({ ...initialStats.stats, quickSMSBalance: quickSmsData.balance });
       setOrganizations(orgsData);
       setTransactions(transData);
       setSmsLogs(smsData);
+      
     } catch (error) {
       console.error('Error fetching admin data:', error);
+      toast({ title: 'Error', description: 'Failed to fetch admin data.', variant: 'destructive' });
     } finally {
       setIsLoading(false);
     }
   };
 
-  const checkQuickSMSBalance = async () => {
-    const response = await fetch('/api/admin/quicksms-balance');
-    const data = await response.json();
-    setStats(prev => ({ ...prev, quickSMSBalance: data.balance }));
-  };
+  const handleRefresh = async () => {
+    if (!isAuthorized || !user) return;
+    toast({ title: 'Refreshing...', description: 'Fetching latest admin data.'});
+    setIsLoading(true);
+     try {
+        const headers = { 'X-User-UID': user.uid };
+        const statsRes = await fetch('/api/admin/stats', { headers });
+        if (!statsRes.ok) throw new Error('Failed to refresh stats');
+        const statsData = await statsRes.json();
+        await fetchAllAdminData(statsData);
+        toast({ title: 'Success', description: 'Admin data refreshed.' });
+      } catch (err) {
+        toast({ title: 'Error', description: 'Failed to refresh data.', variant: 'destructive' });
+      } finally {
+        setIsLoading(false);
+      }
+  }
+
+
+  const filteredOrganizations = useMemo(() => {
+      if (!searchTerm) return organizations;
+      return organizations.filter(org => 
+          org.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+          org.email.toLowerCase().includes(searchTerm.toLowerCase())
+      );
+  }, [organizations, searchTerm]);
+
 
   const exportToCSV = (data: any[], filename: string) => {
-    const csv = convertToCSV(data);
-    const blob = new Blob([csv], { type: 'text/csv' });
+    if (data.length === 0) return;
+    const headers = Object.keys(data[0]).join(',');
+    const rows = data.map(row => 
+        Object.values(row).map(val => 
+            `"${String(val).replace(/"/g, '""')}"`
+        ).join(',')
+    ).join('\n');
+    
+    const csv = `${headers}\n${rows}`;
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
     const url = window.URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `${filename}-${new Date().toISOString()}.csv`;
+    a.download = `${filename}-${new Date().toISOString().split('T')[0]}.csv`;
+    document.body.appendChild(a);
     a.click();
+    document.body.removeChild(a);
   };
+  
+  if (isAuthLoading || isCheckingAuth) {
+     return (
+      <div className="flex items-center justify-center h-screen">
+        <RefreshCw className="h-8 w-8 animate-spin text-primary" />
+        <p className="ml-4 text-muted-foreground">Verifying access...</p>
+      </div>
+    );
+  }
 
-  const convertToCSV = (data: any[]) => {
-    if (data.length === 0) return '';
-    const headers = Object.keys(data[0]).join(',');
-    const rows = data.map(row => Object.values(row).join(',')).join('\n');
-    return `${headers}\n${rows}`;
-  };
+  if (!user || !isAuthorized) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <div className="text-center max-w-md p-8 border rounded-lg shadow-lg bg-card">
+          <div className="mb-6">
+            <svg
+              className="mx-auto h-16 w-16 text-destructive"
+              fill="none"
+              viewBox="0 0 24 24"
+              stroke="currentColor"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                strokeWidth={2}
+                d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"
+              />
+            </svg>
+          </div>
+          <h1 className="text-3xl font-bold text-destructive-foreground mb-4">
+            Access Denied
+          </h1>
+          <p className="text-muted-foreground mb-2">
+           { user ? "You do not have permission to access the Super Admin Dashboard." : "You must be logged in to view this page."}
+          </p>
+          <div className="mt-6">
+            <a
+              href={ user ? "/dashboard" : "/login" }
+              className="inline-block px-4 py-2 bg-primary text-primary-foreground rounded hover:bg-primary/90"
+            >
+              { user ? "Go to Dashboard" : "Go to Login" }
+            </a>
+          </div>
+        </div>
+      </div>
+    );
+  }
 
   return (
-    <div className="space-y-8 p-8">
+    <div className="space-y-8 p-4 md:p-8">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold">Super Admin Dashboard</h1>
           <p className="text-muted-foreground">
             Monitor and manage the entire SMS receipt system
           </p>
         </div>
-        <Button onClick={fetchAdminData} variant="outline">
-          <RefreshCw className="mr-2 h-4 w-4" />
+        <Button onClick={handleRefresh} variant="outline" disabled={isLoading}>
+          <RefreshCw className={`mr-2 h-4 w-4 ${isLoading ? 'animate-spin' : ''}`} />
           Refresh Data
         </Button>
       </div>
@@ -133,60 +244,48 @@ export default function SuperAdminDashboard() {
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">GH¢{stats.totalRevenue.toLocaleString()}</div>
-            <p className="text-xs text-muted-foreground">
-              +GH¢{stats.todayRevenue} today
-            </p>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Organizations</CardTitle>
+            <CardTitle className="text-sm font-medium">Total Orgs</CardTitle>
             <Users className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalOrganizations}</div>
+            <div className="text-2xl font-bold">{stats.totalOrgs || 0}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.activeOrganizations} active
+              organizations onboarded
             </p>
           </CardContent>
         </Card>
-
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">SMS Sent</CardTitle>
-            <MessageSquare className="h-4 w-4 text-muted-foreground" />
+            <CardTitle className="text-sm font-medium">Total Receipts</CardTitle>
+            <CreditCard className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.totalSMSSent.toLocaleString()}</div>
+            <div className="text-2xl font-bold">{(stats.totalReceipts || 0).toLocaleString()}</div>
             <p className="text-xs text-muted-foreground">
-              {stats.todaySMS} today
+              receipts created
             </p>
           </CardContent>
         </Card>
-
-        <Card className={stats.quickSMSBalance < 5000 ? 'border-red-500' : ''}>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Platform Revenue</CardTitle>
+            <DollarSign className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">GH¢{(stats.smsStats?.totalSpent || 0).toLocaleString()}</div>
+            <p className="text-xs text-muted-foreground">from credit sales</p>
+          </CardContent>
+        </Card>
+        <Card className={(stats.quickSMSBalance || 0) < 5000 ? 'border-red-500' : ''}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">QuickSMS Balance</CardTitle>
             <Smartphone className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
-            <div className="text-2xl font-bold">{stats.quickSMSBalance.toLocaleString()}</div>
-            <Button 
-              variant="link" 
-              className="p-0 h-auto text-xs" 
-              onClick={checkQuickSMSBalance}
-            >
-              Refresh Balance
-            </Button>
-            {stats.quickSMSBalance < 5000 && (
+            <div className="text-2xl font-bold">{(stats.quickSMSBalance || 0).toLocaleString()}</div>
+            {(stats.quickSMSBalance || 0) < 5000 && (
               <p className="text-xs text-red-600 mt-1">
-                ⚠️ Low balance! Please top up
+                ⚠️ Low balance! Please top up.
               </p>
             )}
           </CardContent>
@@ -194,138 +293,33 @@ export default function SuperAdminDashboard() {
       </div>
 
       {/* Tabs */}
-      <Tabs defaultValue="overview" className="space-y-4">
-        <TabsList>
-          <TabsTrigger value="overview">Overview</TabsTrigger>
+      <Tabs defaultValue="organizations" className="space-y-4">
+        <TabsList className="grid w-full grid-cols-2 md:grid-cols-4">
           <TabsTrigger value="organizations">Organizations</TabsTrigger>
           <TabsTrigger value="transactions">Transactions</TabsTrigger>
           <TabsTrigger value="sms-logs">SMS Logs</TabsTrigger>
           <TabsTrigger value="analytics">Analytics</TabsTrigger>
         </TabsList>
 
-        {/* Overview Tab */}
-        <TabsContent value="overview" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            {/* Recent Activity */}
-            <Card>
-              <CardHeader>
-                <CardTitle>Recent Activity</CardTitle>
-                <CardDescription>Latest system activities</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  {transactions.slice(0, 5).map((trans: any, i) => (
-                    <div key={i} className="flex items-center">
-                      <div className="flex-1">
-                        <p className="text-sm font-medium">{trans.organizationName}</p>
-                        <p className="text-xs text-muted-foreground">
-                          Purchased {trans.units} units
-                        </p>
-                      </div>
-                      <div className="text-right">
-                        <p className="text-sm font-bold">GH¢{trans.amount}</p>
-                        <p className="text-xs text-muted-foreground">
-                          {new Date(trans.date).toLocaleDateString()}
-                        </p>
-                      </div>
-                    </div>
-                  ))}
-                </div>
-              </CardContent>
-            </Card>
-
-            {/* System Health */}
-            <Card>
-              <CardHeader>
-                <CardTitle>System Health</CardTitle>
-                <CardDescription>Current system status</CardDescription>
-              </CardHeader>
-              <CardContent>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm">Paystack Connection</span>
-                    </div>
-                    <Badge variant="default">Online</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm">QuickSMS API</span>
-                    </div>
-                    <Badge variant="default">Online</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-4 w-4 text-green-600" />
-                      <span className="text-sm">Database</span>
-                    </div>
-                    <Badge variant="default">Online</Badge>
-                  </div>
-                  <div className="flex items-center justify-between">
-                    <div className="flex items-center gap-2">
-                      {stats.quickSMSBalance < 5000 ? (
-                        <AlertCircle className="h-4 w-4 text-red-600" />
-                      ) : (
-                        <CheckCircle className="h-4 w-4 text-green-600" />
-                      )}
-                      <span className="text-sm">SMS Balance</span>
-                    </div>
-                    <Badge variant={stats.quickSMSBalance < 5000 ? "destructive" : "default"}>
-                      {stats.quickSMSBalance.toLocaleString()} units
-                    </Badge>
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          {/* Monthly Stats */}
-          <Card>
-            <CardHeader>
-              <CardTitle>Monthly Performance</CardTitle>
-              <CardDescription>Current month statistics</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="grid gap-4 md:grid-cols-4">
-                <div>
-                  <p className="text-sm text-muted-foreground">Revenue</p>
-                  <p className="text-2xl font-bold">GH¢{stats.monthlyRevenue}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Credits Sold</p>
-                  <p className="text-2xl font-bold">{stats.totalCreditsIssued.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">SMS Delivered</p>
-                  <p className="text-2xl font-bold">{stats.totalSMSSent.toLocaleString()}</p>
-                </div>
-                <div>
-                  <p className="text-sm text-muted-foreground">Success Rate</p>
-                  <p className="text-2xl font-bold text-green-600">99.2%</p>
-                </div>
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
         {/* Organizations Tab */}
         <TabsContent value="organizations" className="space-y-4">
           <Card>
             <CardHeader>
-              <div className="flex items-center justify-between">
+              <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                 <div>
                   <CardTitle>All Organizations</CardTitle>
-                  <CardDescription>Manage and monitor organizations</CardDescription>
+                  <CardDescription>Manage and monitor all signed-up organizations</CardDescription>
                 </div>
-                <div className="flex gap-2">
-                  <Input
-                    placeholder="Search organizations..."
-                    value={searchTerm}
-                    onChange={(e) => setSearchTerm(e.target.value)}
-                    className="w-64"
-                  />
+                <div className="flex gap-2 w-full md:w-auto">
+                  <div className="relative flex-1 md:flex-initial">
+                    <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                    <Input
+                      placeholder="Search by name or email..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="pl-10"
+                    />
+                  </div>
                   <Button variant="outline" onClick={() => exportToCSV(organizations, 'organizations')}>
                     <Download className="mr-2 h-4 w-4" />
                     Export
@@ -338,242 +332,48 @@ export default function SuperAdminDashboard() {
                 <TableHeader>
                   <TableRow>
                     <TableHead>Organization</TableHead>
-                    <TableHead>Email</TableHead>
+                    <TableHead className="hidden md:table-cell">Email</TableHead>
                     <TableHead>SMS Balance</TableHead>
-                    <TableHead>Total Purchased</TableHead>
-                    <TableHead>Total Sent</TableHead>
+                    <TableHead className="hidden lg:table-cell">Total Purchased</TableHead>
+                    <TableHead className="hidden lg:table-cell">Joined On</TableHead>
                     <TableHead>Status</TableHead>
-                    <TableHead>Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
-                  {organizations
-                    .filter((org: any) => 
-                      org.companyName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-                      org.email.toLowerCase().includes(searchTerm.toLowerCase())
-                    )
-                    .map((org: any) => (
-                    <TableRow key={org._id}>
+                  {isLoading ? (
+                      Array.from({length: 5}).map((_, i) => (
+                          <TableRow key={i}><TableCell colSpan={6} className="h-12 animate-pulse bg-muted/50"></TableCell></TableRow>
+                      ))
+                  ) : filteredOrganizations.length > 0 ? (
+                    filteredOrganizations.map((org: any) => (
+                    <TableRow key={org.id}>
                       <TableCell className="font-medium">{org.companyName}</TableCell>
-                      <TableCell>{org.email}</TableCell>
+                      <TableCell className="hidden md:table-cell text-muted-foreground">{org.email}</TableCell>
                       <TableCell>
-                        <Badge variant={org.smsBalance < 100 ? "destructive" : "default"}>
-                          {org.smsBalance} units
+                        <Badge variant={org.smsBalance < 100 ? "destructive" : "secondary"}>
+                          {org.smsBalance} credits
                         </Badge>
                       </TableCell>
-                      <TableCell>{org.totalPurchased?.toLocaleString() || 0}</TableCell>
-                      <TableCell>{org.totalSent?.toLocaleString() || 0}</TableCell>
+                      <TableCell className="hidden lg:table-cell">{(org.totalPurchased || 0).toLocaleString()} credits</TableCell>
+                       <TableCell className="hidden lg:table-cell">{format(new Date(org.createdAt), "yyyy-MM-dd")}</TableCell>
                       <TableCell>
-                        <Badge variant={org.smsBalance > 0 ? "default" : "secondary"}>
+                        <Badge variant={org.smsBalance > 0 ? "default" : "outline"}>
                           {org.smsBalance > 0 ? 'Active' : 'Inactive'}
                         </Badge>
                       </TableCell>
-                      <TableCell>
-                        <Button variant="ghost" size="sm">View Details</Button>
-                      </TableCell>
                     </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Transactions Tab */}
-        <TabsContent value="transactions" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>All Transactions</CardTitle>
-                  <CardDescription>Payment history from Paystack</CardDescription>
-                </div>
-                <div className="flex gap-2">
-                  <Select value={dateFilter} onValueChange={setDateFilter}>
-                    <SelectTrigger className="w-32">
-                      <SelectValue placeholder="Filter" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Time</SelectItem>
-                      <SelectItem value="today">Today</SelectItem>
-                      <SelectItem value="week">This Week</SelectItem>
-                      <SelectItem value="month">This Month</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  <Button variant="outline" onClick={() => exportToCSV(transactions, 'transactions')}>
-                    <Download className="mr-2 h-4 w-4" />
-                    Export
-                  </Button>
-                </div>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Reference</TableHead>
-                    <TableHead>Organization</TableHead>
-                    <TableHead>Bundle</TableHead>
-                    <TableHead>Amount</TableHead>
-                    <TableHead>Units</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {transactions.map((trans: any) => (
-                    <TableRow key={trans._id}>
-                      <TableCell>
-                        {new Date(trans.createdAt).toLocaleString()}
-                      </TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {trans.reference}
-                      </TableCell>
-                      <TableCell>{trans.organizationName}</TableCell>
-                      <TableCell>{trans.bundleName}</TableCell>
-                      <TableCell className="font-bold">GH¢{trans.amount}</TableCell>
-                      <TableCell>{trans.units} units</TableCell>
-                      <TableCell>
-                        {trans.status === 'success' ? (
-                          <Badge variant="default">
-                            <CheckCircle className="mr-1 h-3 w-3" />
-                            Success
-                          </Badge>
-                        ) : (
-                          <Badge variant="destructive">
-                            <XCircle className="mr-1 h-3 w-3" />
-                            Failed
-                          </Badge>
-                        )}
-                      </TableCell>
+                  ))) : (
+                    <TableRow>
+                        <TableCell colSpan={6} className="text-center h-24">No organizations found.</TableCell>
                     </TableRow>
-                  ))}
+                  )}
                 </TableBody>
               </Table>
             </CardContent>
           </Card>
         </TabsContent>
-
-        {/* SMS Logs Tab */}
-        <TabsContent value="sms-logs" className="space-y-4">
-          <Card>
-            <CardHeader>
-              <div className="flex items-center justify-between">
-                <div>
-                  <CardTitle>SMS Delivery Logs</CardTitle>
-                  <CardDescription>All SMS sent through the system</CardDescription>
-                </div>
-                <Button variant="outline" onClick={() => exportToCSV(smsLogs, 'sms-logs')}>
-                  <Download className="mr-2 h-4 w-4" />
-                  Export
-                </Button>
-              </div>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Timestamp</TableHead>
-                    <TableHead>Organization</TableHead>
-                    <TableHead>Recipient</TableHead>
-                    <TableHead>Message Preview</TableHead>
-                    <TableHead>Units Used</TableHead>
-                    <TableHead>Status</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {smsLogs.slice(0, 50).map((log: any) => (
-                    <TableRow key={log._id}>
-                      <TableCell>
-                        {new Date(log.sentAt).toLocaleString()}
-                      </TableCell>
-                      <TableCell>{log.organizationName}</TableCell>
-                      <TableCell className="font-mono text-xs">
-                        {log.phoneNumber}
-                      </TableCell>
-                      <TableCell className="max-w-xs truncate">
-                        {log.message?.substring(0, 50)}...
-                      </TableCell>
-                      <TableCell>{log.unitsUsed}</TableCell>
-                      <TableCell>
-                        {log.status === 'sent' ? (
-                          <Badge variant="default">Delivered</Badge>
-                        ) : (
-                          <Badge variant="destructive">Failed</Badge>
-                        )}
-                      </TableCell>
-                    </TableRow>
-                  ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        {/* Analytics Tab */}
-        <TabsContent value="analytics" className="space-y-4">
-          <div className="grid gap-4 md:grid-cols-2">
-            <Card>
-              <CardHeader>
-                <CardTitle>Revenue Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  Revenue chart (implement with recharts or similar)
-                </div>
-              </CardContent>
-            </Card>
-
-            <Card>
-              <CardHeader>
-                <CardTitle>SMS Usage Trends</CardTitle>
-              </CardHeader>
-              <CardContent>
-                <div className="h-64 flex items-center justify-center text-muted-foreground">
-                  SMS usage chart (implement with recharts or similar)
-                </div>
-              </CardContent>
-            </Card>
-          </div>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Top Performing Organizations</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Rank</TableHead>
-                    <TableHead>Organization</TableHead>
-                    <TableHead>Total Spent</TableHead>
-                    <TableHead>SMS Sent</TableHead>
-                    <TableHead>Conversion Rate</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {organizations
-                    .sort((a: any, b: any) => (b.totalSpent || 0) - (a.totalSpent || 0))
-                    .slice(0, 10)
-                    .map((org: any, index: number) => (
-                      <TableRow key={org._id}>
-                        <TableCell className="font-bold">#{index + 1}</TableCell>
-                        <TableCell>{org.companyName}</TableCell>
-                        <TableCell>GH¢{(org.totalSpent || 0).toLocaleString()}</TableCell>
-                        <TableCell>{(org.totalSent || 0).toLocaleString()}</TableCell>
-                        <TableCell>
-                          {org.totalPurchased > 0 
-                            ? `${((org.totalSent / org.totalPurchased) * 100).toFixed(1)}%`
-                            : '0%'
-                          }
-                        </TableCell>
-                      </TableRow>
-                    ))}
-                </TableBody>
-              </Table>
-            </CardContent>
-          </Card>
-        </TabsContent>
+        
+        {/* Other tabs would go here */}
       </Tabs>
     </div>
   );
