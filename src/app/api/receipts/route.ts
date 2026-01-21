@@ -1,20 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from "next-auth";
 import mongoose from 'mongoose';
 import { Receipt, Contact, Organization, IReceipt, User, SmsLog } from '@/lib/models';
 import { Resend } from 'resend';
 import { quickSMSService } from '@/lib/quicksms';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import connectDB from '@/lib/mongodb';
 
-const MONGODB_URI = process.env.MONGODB_URI!;
 const RESEND_API_KEY = process.env.RESEND_API_KEY;
 
 const resend = RESEND_API_KEY ? new Resend(RESEND_API_KEY) : null;
-
-async function connectDB() {
-  if (mongoose.connection.readyState >= 1) return;
-  return mongoose.connect(MONGODB_URI);
-}
 
 // Function to generate a unique receipt number
 async function generateReceiptNumber(): Promise<string> {
@@ -23,14 +16,19 @@ async function generateReceiptNumber(): Promise<string> {
     const year = date.getFullYear().toString().slice(-2);
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
     
-    // Find the last receipt for the current month to determine the next sequence number
+    await connectDB();
     const lastReceipt = await Receipt.findOne({ receiptNumber: new RegExp(`^${prefix}${year}${month}`) })
                                      .sort({ createdAt: -1 });
 
     let sequence = 1;
     if (lastReceipt) {
-        const lastSeq = parseInt(lastReceipt.receiptNumber.slice(-4), 10);
-        sequence = lastSeq + 1;
+        const lastSeqStr = lastReceipt.receiptNumber.slice(-4);
+        if (lastSeqStr) {
+           const lastSeq = parseInt(lastSeqStr, 10);
+           if (!isNaN(lastSeq)) {
+             sequence = lastSeq + 1;
+           }
+        }
     }
     
     return `${prefix}${year}${month}${sequence.toString().padStart(4, '0')}`;
@@ -39,12 +37,11 @@ async function generateReceiptNumber(): Promise<string> {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !(session.user as any).organizationId) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const organizationId = (session.user as any).organizationId;
-
+    
     await connectDB();
 
     const receipts = await Receipt.find({ organizationId })
@@ -63,11 +60,10 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !(session.user as any).organizationId) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const organizationId = (session.user as any).organizationId;
     
     const data = await req.json();
 
@@ -162,11 +158,10 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session || !session.user || !(session.user as any).organizationId) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-    const organizationId = (session.user as any).organizationId;
     
     const { searchParams } = new URL(req.url);
     const receiptId = searchParams.get('id');

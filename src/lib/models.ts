@@ -179,6 +179,24 @@ const TransactionSchema = new Schema<ITransaction>({
   createdAt: { type: Date, default: Date.now }
 });
 
+// Template Schema (NEW)
+export interface ITemplate extends Document {
+  organizationId: string;
+  name: string;
+  content: string;
+  type: string; // e.g., 'receipt_thank_you'
+  createdAt: Date;
+}
+
+const TemplateSchema = new Schema<ITemplate>({
+  organizationId: { type: String, required: true, index: true },
+  name: { type: String, required: true },
+  content: { type: String, required: true },
+  type: { type: String, required: true, index: true },
+  createdAt: { type: Date, default: Date.now }
+});
+
+
 // System Error Log Schema
 export interface ISystemErrorLog extends Document {
   timestamp: Date;
@@ -202,4 +220,5 @@ export const EmailLog: Model<IEmailLog> = mongoose.models.EmailLog || mongoose.m
 export const SmsLog: Model<ISmsLog> = mongoose.models.SmsLog || mongoose.model<ISmsLog>('SmsLog', SmsLogSchema);
 export const User: Model<IUser> = mongoose.models.User || mongoose.model<IUser>('User', UserSchema);
 export const Transaction: Model<ITransaction> = mongoose.models.Transaction || mongoose.model<ITransaction>('Transaction', TransactionSchema);
+export const Template: Model<ITemplate> = mongoose.models.Template || mongoose.model<ITemplate>('Template', TemplateSchema);
 export const SystemErrorLog: Model<ISystemErrorLog> = mongoose.models.SystemErrorLog || mongoose.model<ISystemErrorLog>('SystemErrorLog', SystemErrorLogSchema);
