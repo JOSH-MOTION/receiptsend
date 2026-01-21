@@ -1,8 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { getServerSession } from 'next-auth';
 import mongoose from 'mongoose';
-import { Receipt, Contact, Organization, IReceipt } from '@/lib/models';
-import { authOptions } from '@/app/api/auth/[...nextauth]/route';
+import { Receipt, Contact, Organization, IReceipt, User } from '@/lib/models';
 import { Resend } from 'resend';
 import { sendSms } from '@/lib/sms';
 
@@ -18,12 +16,10 @@ async function connectDB() {
 
 export async function GET(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const organizationId = (session.user as any).organizationId;
 
     await connectDB();
 
@@ -43,12 +39,11 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const organizationId = (session.user as any).organizationId;
+    
     const data = await req.json();
 
     await connectDB();
@@ -202,12 +197,11 @@ export async function POST(req: NextRequest) {
 
 export async function DELETE(req: NextRequest) {
   try {
-    const session = await getServerSession(authOptions);
-    if (!session?.user) {
+    const organizationId = req.headers.get('X-User-UID');
+    if (!organizationId) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
-
-    const organizationId = (session.user as any).organizationId;
+    
     const { searchParams } = new URL(req.url);
     const receiptId = searchParams.get('id');
 

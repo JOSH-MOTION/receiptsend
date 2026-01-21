@@ -36,7 +36,7 @@ import {
 import { Bar, BarChart, CartesianGrid, XAxis } from "recharts";
 import Link from "next/link";
 import React, { useMemo, useState, useEffect } from "react";
-import { useSession } from 'next-auth/react';
+import { useUser } from "@/firebase";
 import { format, subHours, subMonths } from "date-fns";
 
 interface ReceiptItem {
@@ -68,7 +68,7 @@ const chartConfig = {
 };
 
 export default function Dashboard() {
-  const { data: session } = useSession();
+  const { user } = useUser();
   const [allReceipts, setAllReceipts] = useState<Receipt[]>([]);
   const [recentReceipts, setRecentReceipts] = useState<Receipt[]>([]);
   const [isLoading, setIsLoading] = useState(true);
@@ -79,14 +79,17 @@ export default function Dashboard() {
   }, []);
 
   useEffect(() => {
-    if (session) {
+    if (user) {
       fetchReceipts();
     }
-  }, [session]);
+  }, [user]);
 
   const fetchReceipts = async () => {
+    if (!user) return;
     try {
-      const response = await fetch('/api/receipts');
+      const response = await fetch('/api/receipts', {
+        headers: { 'X-User-UID': user.uid }
+      });
       if (response.ok) {
         const data: Receipt[] = await response.json();
         setAllReceipts(data);

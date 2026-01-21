@@ -9,6 +9,7 @@ import {
   Menu,
   X,
   ChevronRight,
+  LogOut,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -26,9 +27,11 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { PlaceHolderImages } from "@/lib/placeholder-images";
-import { useSession, signOut } from 'next-auth/react';
 import { Skeleton } from "./ui/skeleton";
 import { cn } from "@/lib/utils";
+import { useUser, useAuth as useFirebaseAuth } from "@/firebase";
+import { signOut } from "firebase/auth";
+
 
 function NavLink({
   href,
@@ -63,34 +66,43 @@ function NavLink({
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   const userAvatar = PlaceHolderImages.find(p => p.id === 'user-avatar');
-  const { data: session, status } = useSession();
+  const { user, isUserLoading } = useUser();
+  const { auth } = useFirebaseAuth();
   const router = useRouter();
   const pathname = usePathname();
-  const isUserLoading = status === 'loading';
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [organizationName, setOrganizationName] = useState<string>('');
 
   // Fetch organization name
   useEffect(() => {
     const fetchOrganization = async () => {
+      if (!user) return;
       try {
-        const response = await fetch('/api/organization');
+        // We pass the user's UID to securely fetch their organization data
+        const response = await fetch('/api/organization', {
+          headers: { 'X-User-UID': user.uid }
+        });
         if (response.ok) {
           const data = await response.json();
-          setOrganizationName(data.companyName || 'Acme Inc.');
+          setOrganizationName(data.companyName || 'My Organization');
+        } else {
+          // If org not found (e.g., still being created), use a placeholder
+          setOrganizationName('My Organization');
         }
       } catch (error) {
         console.error('Failed to fetch organization:', error);
+        setOrganizationName('My Organization');
       }
     };
     
-    if (session) {
+    if (user) {
       fetchOrganization();
     }
-  }, [session]);
+  }, [user]);
 
   const handleLogout = async () => {
-    await signOut({ redirect: false });
+    if (!auth) return;
+    await signOut(auth);
     router.push('/login');
   };
 
@@ -167,7 +179,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                       <Avatar className="h-10 w-10 border-2 border-green-200 dark:border-green-800">
                         <AvatarImage src={userAvatar?.imageUrl} alt={userAvatar?.description} />
                         <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                          {session?.user?.email?.charAt(0).toUpperCase() || 'U'}
+                          {user?.email?.charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col items-start flex-1 text-left">
@@ -175,7 +187,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                           {organizationName || "Loading..."}
                         </span>
                         <span className="text-xs text-muted-foreground truncate w-full">
-                          {session?.user?.email}
+                          {user?.email}
                         </span>
                       </div>
                       <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
@@ -191,7 +203,8 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-red-600">
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600 flex items-center gap-2">
+                  <LogOut className="h-4 w-4" />
                   Logout
                 </DropdownMenuItem>
               </DropdownMenuContent>
@@ -250,12 +263,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     <Avatar className="h-8 w-8 border-2 border-green-200">
                       <AvatarImage src={userAvatar?.imageUrl} />
                       <AvatarFallback className="bg-gradient-to-br from-green-500 to-emerald-600 text-white">
-                        {session?.user?.email?.charAt(0).toUpperCase() || 'U'}
+                        {user?.email?.charAt(0).toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start flex-1 text-left">
                       <span className="text-sm font-semibold">{organizationName || "Loading..."}</span>
-                      <span className="text-xs text-muted-foreground">{session?.user?.email}</span>
+                      <span className="text-xs text-muted-foreground">{user?.email}</span>
                     </div>
                   </Button>
                 </DropdownMenuTrigger>
@@ -265,7 +278,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                   <DropdownMenuItem asChild><Link href="/settings">Settings</Link></DropdownMenuItem>
                   <DropdownMenuItem>Support</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-red-600">Logout</DropdownMenuItem>
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 flex items-center gap-2">
+                    <LogOut className="h-4 w-4"/>
+                    Logout
+                  </DropdownMenuItem>
                 </DropdownMenuContent>
               </DropdownMenu>
             </div>

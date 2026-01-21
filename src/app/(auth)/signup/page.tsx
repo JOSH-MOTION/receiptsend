@@ -9,10 +9,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth-new";
-import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 import { Building, Mail, Lock, Loader2 } from 'lucide-react';
+import { useAuth as useFirebaseAuth } from "@/hooks/use-auth";
+import { useFirebase } from "@/firebase";
+import { createUserWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
+
 
 const signupSchema = z.object({
   organizationName: z.string().min(2, "Organization name must be at least 2 characters"),
@@ -25,7 +28,9 @@ type SignupFormValues = z.infer<typeof signupSchema>;
 export default function SignupPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  useAuth({ required: false });
+  useFirebaseAuth({ required: false });
+  const { auth } = useFirebase();
+  const router = useRouter();
 
   const form = useForm<SignupFormValues>({
     resolver: zodResolver(signupSchema),
@@ -38,46 +43,57 @@ export default function SignupPage() {
 
   const onSubmit = async (data: SignupFormValues) => {
     setIsLoading(true);
+
+    if (!auth) {
+        toast({ title: "Error", description: "Firebase not initialized", variant: "destructive" });
+        setIsLoading(false);
+        return;
+    }
+
     try {
+      // 1. Create user in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, data.email, data.password);
+      const user = userCredential.user;
+
+      toast({
+        title: "Account Created!",
+        description: "Finalizing your organization setup...",
+        className: "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
+      });
+
+      // 2. Create Organization and User documents in MongoDB
       const response = await fetch('/api/auth/signup', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(data),
+        body: JSON.stringify({
+          email: data.email,
+          organizationName: data.organizationName,
+          uid: user.uid,
+        }),
       });
 
       const result = await response.json();
 
       if (!response.ok) {
-        throw new Error(result.error || 'Signup failed. Please try again.');
+        // This might happen if the user exists in Mongo but not Firebase, etc.
+        throw new Error(result.error || 'Failed to set up your organization.');
       }
+      
+      // 3. Redirect to dashboard
+      router.push('/dashboard');
 
-      toast({
-        title: "Account Created!",
-        description: "Logging you in automatically...",
-        className: "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
-      });
-
-      // Auto login after successful signup
-      const signInResult = await signIn('credentials', {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-
-      if (signInResult?.error) {
-        toast({
-          title: "Auto-Login Failed",
-          description: "Please try logging in manually.",
-          variant: "destructive",
-        });
-        window.location.href = '/login';
-      } else {
-        window.location.href = '/dashboard';
-      }
     } catch (error: any) {
+      const errorCode = error.code;
+      let errorMessage = error.message || "An unexpected error occurred.";
+      if (errorCode === 'auth/email-already-in-use') {
+        errorMessage = 'This email address is already taken.';
+      } else if (errorCode === 'auth/weak-password') {
+        errorMessage = 'The password is too weak.';
+      }
+      
       toast({
         title: "Signup Failed",
-        description: error.message,
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

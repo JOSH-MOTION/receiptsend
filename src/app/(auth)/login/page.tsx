@@ -9,10 +9,13 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { z } from "zod";
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from "@/components/ui/form";
 import { useToast } from "@/hooks/use-toast";
-import { useAuth } from "@/hooks/use-auth-new";
-import { signIn } from 'next-auth/react';
 import { useState } from 'react';
 import { Mail, Lock, Loader2 } from 'lucide-react';
+import { useAuth as useFirebaseAuth } from '@/hooks/use-auth';
+import { useFirebase } from "@/firebase";
+import { signInWithEmailAndPassword } from "firebase/auth";
+import { useRouter } from "next/navigation";
+
 
 const loginSchema = z.object({
   email: z.string().email("Invalid email address"),
@@ -24,7 +27,10 @@ type LoginFormValues = z.infer<typeof loginSchema>;
 export default function LoginPage() {
   const { toast } = useToast();
   const [isLoading, setIsLoading] = useState(false);
-  useAuth({ required: false });
+  useFirebaseAuth({ required: false });
+  const { auth } = useFirebase();
+  const router = useRouter();
+
 
   const form = useForm<LoginFormValues>({
     resolver: zodResolver(loginSchema),
@@ -36,31 +42,29 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginFormValues) => {
     setIsLoading(true);
+    if (!auth) {
+        toast({ title: "Error", description: "Firebase not initialized", variant: "destructive" });
+        setIsLoading(false);
+        return;
+    }
     try {
-      const result = await signIn('credentials', {
-        email: data.email,
-        password: data.password,
-        redirect: false,
-      });
-
-      if (result?.error) {
-        toast({
-          title: "Login Failed",
-          description: result.error,
-          variant: "destructive",
-        });
-      } else {
-        toast({
-          title: "Login Successful",
-          description: "Redirecting to your dashboard...",
-          className: "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
-        });
-        window.location.href = '/dashboard';
-      }
-    } catch (error: any) {
+      await signInWithEmailAndPassword(auth, data.email, data.password);
       toast({
-        title: "Login Error",
-        description: error.message || "An unexpected error occurred. Please try again.",
+        title: "Login Successful",
+        description: "Redirecting to your dashboard...",
+        className: "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
+      });
+      router.push('/dashboard');
+
+    } catch (error: any) {
+      const errorCode = error.code;
+      let errorMessage = "An unexpected error occurred. Please try again.";
+      if (errorCode === 'auth/user-not-found' || errorCode === 'auth/wrong-password' || errorCode === 'auth/invalid-credential') {
+        errorMessage = 'Invalid email or password.';
+      }
+      toast({
+        title: "Login Failed",
+        description: errorMessage,
         variant: "destructive",
       });
     } finally {

@@ -1,5 +1,4 @@
 import { NextRequest, NextResponse } from 'next/server';
-import { hash } from 'bcryptjs';
 import mongoose from 'mongoose';
 import { User, Organization } from '@/lib/models';
 
@@ -14,9 +13,9 @@ async function connectDB() {
 
 export async function POST(req: NextRequest) {
   try {
-    const { email, password, organizationName } = await req.json();
+    const { email, organizationName, uid } = await req.json();
 
-    if (!email || !password || !organizationName) {
+    if (!email || !organizationName || !uid) {
       return NextResponse.json(
         { error: 'Missing required fields' },
         { status: 400 }
@@ -34,27 +33,25 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Hash password
-    const hashedPassword = await hash(password, 12);
-
-    // Create organization first
+    // Create organization with Firebase UID as the ID
     const organization = await Organization.create({
+      _id: uid, // Use Firebase UID as the primary key
       companyName: organizationName,
       email: email,
       createdAt: new Date(),
     });
 
-    // Create user
+    // Create user, linking to the organization via the UID
     const user = await User.create({
+      uid: uid,
       email,
-      password: hashedPassword,
       organizationId: organization._id.toString(),
       createdAt: new Date(),
     });
 
     return NextResponse.json(
       {
-        message: 'User created successfully',
+        message: 'User and Organization created successfully in MongoDB',
         user: {
           id: user._id.toString(),
           email: user.email,
@@ -65,6 +62,13 @@ export async function POST(req: NextRequest) {
     );
   } catch (error: any) {
     console.error('Signup error:', error);
+    // Handle potential duplicate key error for organization
+    if (error.code === 11000) {
+        return NextResponse.json(
+            { error: 'An organization with this ID already exists.' },
+            { status: 409 }
+        );
+    }
     return NextResponse.json(
       { error: error.message || 'Something went wrong' },
       { status: 500 }
