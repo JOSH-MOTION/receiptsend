@@ -70,19 +70,9 @@ export default function ReceiptDetailsPage() {
     () => (user ? doc(firestore, `organizations/${user.uid}`) : null),
     [firestore, user]
   );
-  const { data: orgData } = useDoc(orgRef);
+  const { data: orgData, isLoading: isOrgLoading } = useDoc(orgRef);
   
   useEffect(() => {
-    const doneLoading = !isUserLoading && !isReceiptLoading;
-    if (doneLoading && !receipt && receiptId && !error) {
-       toast({
-          title: 'Error',
-          description: 'Receipt not found or you do not have permission to view it.',
-          variant: 'destructive',
-        });
-       router.push('/receipts');
-    }
-    
     if (error) {
       console.error('Error loading receipt:', error);
       toast({
@@ -92,7 +82,7 @@ export default function ReceiptDetailsPage() {
       });
       router.push('/receipts');
     }
-  }, [isUserLoading, isReceiptLoading, receipt, receiptId, error, router, toast]);
+  }, [error, router, toast]);
 
   const handlePrint = () => {
     window.print();
@@ -166,7 +156,9 @@ export default function ReceiptDetailsPage() {
     return format(date, timeFormat);
   }
 
-  if (isUserLoading || isReceiptLoading) {
+  const isLoading = isUserLoading || isReceiptLoading || isOrgLoading;
+
+  if (isLoading) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
@@ -178,7 +170,21 @@ export default function ReceiptDetailsPage() {
   }
   
   if (!receipt) {
-    return null; // Will redirect via useEffect
+    return (
+      <div className="container mx-auto py-8 max-w-4xl text-center">
+        <Card>
+          <CardHeader>
+            <CardTitle>Receipt Not Found</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <p>The receipt you are looking for does not exist or you do not have permission to view it.</p>
+            <Button asChild className="mt-4">
+              <Link href="/receipts">Back to Receipts</Link>
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
+    );
   }
 
   const subtotal = receipt.items.reduce(

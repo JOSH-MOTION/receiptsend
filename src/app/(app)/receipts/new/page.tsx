@@ -238,23 +238,25 @@ export default function NewReceiptPage() {
             }
         };
 
-        const result = await sendReceiptAction(flowInput);
-
-        if (result.success) {
-            toast({
-                title: "Receipt Sent!",
-                description: result.message,
-                className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
-            });
-        } else {
-             toast({
-                title: "Email Failed",
-                description: result.message,
-                variant: "destructive",
-            });
-        }
+        // We don't need to await this, but we can catch errors
+        sendReceiptAction(flowInput).then(result => {
+          if (result.success) {
+              toast({
+                  title: "Receipt Sent!",
+                  description: result.message,
+                  className: "bg-green-50 border-green-200 dark:bg-green-950 dark:border-green-900",
+              });
+          } else {
+              toast({
+                  title: "Email Failed",
+                  description: result.message,
+                  variant: "destructive",
+              });
+          }
+        });
       }
       
+      // If sendSMS is checked, show placeholder notification
       if (sendSMS) {
         toast({
           title: 'Feature In Development',
