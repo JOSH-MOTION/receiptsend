@@ -46,7 +46,7 @@ interface Receipt {
 export default function ReceiptDetailsPage() {
   const params = useParams();
   const router = useRouter();
-  const { user } = useUser();
+  const { user, isUserLoading } = useUser();
   const { firestore } = useFirebase();
   const { toast } = useToast();
 
@@ -56,10 +56,11 @@ export default function ReceiptDetailsPage() {
     () => (receiptId && user ? doc(firestore, `organizations/${user.uid}/receipts`, receiptId) : null),
     [firestore, user, receiptId]
   );
-  const { data: receipt, isLoading, error } = useDoc<Omit<Receipt, 'id'>>(receiptRef);
+  const { data: receipt, isLoading: isReceiptLoading, error } = useDoc<Omit<Receipt, 'id'>>(receiptRef);
   
   useEffect(() => {
-    if (!isLoading && !receipt && receiptId) {
+    const doneLoading = !isUserLoading && !isReceiptLoading;
+    if (doneLoading && !receipt && receiptId) {
        toast({
           title: 'Error',
           description: 'Receipt not found or you do not have permission to view it.',
@@ -67,7 +68,7 @@ export default function ReceiptDetailsPage() {
         });
        router.push('/receipts');
     }
-  }, [isLoading, receipt, receiptId, router, toast]);
+  }, [isUserLoading, isReceiptLoading, receipt, receiptId, router, toast]);
 
   const handlePrint = () => {
     window.print();
@@ -79,7 +80,7 @@ export default function ReceiptDetailsPage() {
     return format(date, timeFormat);
   }
 
-  if (isLoading || !receipt) {
+  if (isUserLoading || isReceiptLoading || !receipt) {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
