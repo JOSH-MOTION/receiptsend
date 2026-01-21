@@ -1,16 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
 import { Contact } from '@/lib/models';
+import connectDB from '@/lib/mongodb';
 
-
-const MONGODB_URI = process.env.MONGODB_URI;
-
-async function connectDB() {
-  if (mongoose.connection.readyState >= 1) {
-    return;
-  }
-  return mongoose.connect(MONGODB_URI!);
-}
 
 // GET all contacts for the organization
 export async function GET(req: NextRequest) {

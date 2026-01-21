@@ -1,17 +1,8 @@
 import { NextRequest, NextResponse } from 'next/server';
-import mongoose from 'mongoose';
 import { Receipt, Organization } from '@/lib/models';
+import connectDB from '@/lib/mongodb';
 import fs from 'fs';  // Add this for reading the font file
 import path from 'path';  // Add this for path resolution
-
-const MONGODB_URI = process.env.MONGODB_URI;
-
-async function connectDB() {
-  if (mongoose.connection.readyState >= 1) {
-    return;
-  }
-  return mongoose.connect(MONGODB_URI!);
-}
 
 export async function GET(
   req: NextRequest,
