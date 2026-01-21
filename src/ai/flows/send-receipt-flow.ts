@@ -27,6 +27,7 @@ const ReceiptDataSchema = z.object({
   createdAt: z.string(), // Pass as ISO string
   discount: z.number().optional(),
   tax: z.number().optional(),
+  deliveryChannels: z.array(z.string()).optional(),
 });
 
 const OrganizationDataSchema = z.object({

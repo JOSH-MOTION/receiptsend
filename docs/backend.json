@@ -63,7 +63,14 @@
         },
         "totalAmount": { "type": "number" },
         "thankYouMessage": { "type": "string" },
-        "createdAt": { "type": "string", "format": "date-time" }
+        "createdAt": { "type": "string", "format": "date-time" },
+        "deliveryChannels": {
+          "type": "array",
+          "description": "The channels through which the receipt was sent, e.g., 'email', 'sms'.",
+          "items": {
+            "type": "string"
+          }
+        }
       },
       "required": ["organizationId", "receiptNumber", "customerName", "customerEmail", "items", "totalAmount", "createdAt"]
     },

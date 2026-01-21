@@ -180,6 +180,10 @@ export default function NewReceiptPage() {
       const receiptNumber = await generateReceiptNumber();
       const creationDate = new Date();
       
+      const deliveryChannels: string[] = [];
+      if (sendEmail) deliveryChannels.push('email');
+      if (sendSMS) deliveryChannels.push('sms');
+      
       const receiptData = {
         organizationId: user.uid,
         receiptNumber,
@@ -192,6 +196,7 @@ export default function NewReceiptPage() {
         totalAmount: total,
         thankYouMessage,
         createdAt: creationDate, // Use a concrete date for the flow
+        deliveryChannels,
       };
       
       const receiptsCol = collection(firestore, `organizations/${user.uid}/receipts`);

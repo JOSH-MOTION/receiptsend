@@ -46,6 +46,7 @@ interface Receipt {
   totalAmount: number;
   createdAt: { seconds: number; nanoseconds: number; };
   thankYouMessage?: string;
+  deliveryChannels?: string[];
 }
 
 export default function ReceiptDetailsPage() {
@@ -255,6 +256,13 @@ export default function ReceiptDetailsPage() {
               <CardDescription className="mt-2">
                 Receipt #{receipt.receiptNumber}
               </CardDescription>
+              {receipt.deliveryChannels && receipt.deliveryChannels.length > 0 && (
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-1 mt-2 text-sm text-muted-foreground">
+                  {receipt.deliveryChannels.includes('email') && <div className="flex items-center gap-1.5"><Mail className="h-4 w-4 text-green-600" /><span>Sent via Email</span></div>}
+                  {receipt.deliveryChannels.includes('sms') && <div className="flex items-center gap-1.5"><MessageSquare className="h-4 w-4 text-green-600" /><span>Sent via SMS</span></div>}
+                  <span>on {formatTimestamp(receipt.createdAt, 'MMM dd, yyyy, hh:mm a')}</span>
+                </div>
+              )}
             </div>
             <Badge variant="secondary" className="text-sm">
               Saved

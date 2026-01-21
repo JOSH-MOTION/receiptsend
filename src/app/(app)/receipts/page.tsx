@@ -71,6 +71,7 @@ interface Receipt {
   totalAmount: number;
   pdfUrl?: string;
   createdAt: { seconds: number, nanoseconds: number } | Date;
+  deliveryChannels?: string[];
 }
 
 export default function ReceiptsPage() {
@@ -111,9 +112,9 @@ export default function ReceiptsPage() {
 
     // Channel filter
     if (filterChannel === "email") {
-      filtered = filtered.filter((r) => r.customerEmail);
+      filtered = filtered.filter((r) => r.deliveryChannels?.includes("email"));
     } else if (filterChannel === "sms") {
-      filtered = filtered.filter((r) => r.customerPhoneNumber);
+      filtered = filtered.filter((r) => r.deliveryChannels?.includes("sms"));
     }
 
     return filtered;
@@ -291,17 +292,20 @@ export default function ReceiptsPage() {
                             </TableCell>
                             <TableCell className="hidden md:table-cell">
                               <div className="flex gap-2 flex-wrap">
-                                {receipt.customerEmail && (
+                                {receipt.deliveryChannels?.includes("email") && (
                                   <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs">
                                     <Mail className="h-3 w-3 mr-1" />
                                     Email
                                   </Badge>
                                 )}
-                                {receipt.customerPhoneNumber && (
+                                {receipt.deliveryChannels?.includes("sms") && (
                                   <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-xs">
                                     <Smartphone className="h-3 w-3 mr-1" />
                                     SMS
                                   </Badge>
+                                )}
+                                {(!receipt.deliveryChannels || receipt.deliveryChannels.length === 0) && (
+                                  <Badge variant="outline">Not Sent</Badge>
                                 )}
                               </div>
                             </TableCell>
