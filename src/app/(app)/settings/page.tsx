@@ -201,6 +201,10 @@ export default function SettingsPage() {
                   <Label htmlFor="orgPhone">Phone Number</Label>
                   <Input id="orgPhone" value={organization.phoneNumber || ''} onChange={(e) => setOrganization({ ...organization, phoneNumber: e.target.value })} />
                 </div>
+                <div className="space-y-2">
+                  <Label htmlFor="orgAddress">Address</Label>
+                  <Input id="orgAddress" value={organization.address || ''} onChange={(e) => setOrganization({ ...organization, address: e.target.value })} />
+                </div>
                 <Button onClick={handleSave} disabled={isSaving}>
                   {isSaving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   {isSaving ? 'Saving...' : 'Save Changes'}
@@ -297,5 +301,3 @@ export default function SettingsPage() {
     </div>
   );
 }
-
-    
