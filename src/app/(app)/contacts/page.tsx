@@ -8,7 +8,8 @@ import {
   User,
   MessageSquare,
   Loader2,
-  Users
+  Users,
+  Edit
 } from "lucide-react"
 import {
   Breadcrumb,
@@ -81,7 +82,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import Link from "next/link"
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, deleteDoc, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
+import { collection, deleteDoc, doc, addDoc, serverTimestamp, writeBatch, updateDoc } from "firebase/firestore";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -116,11 +117,14 @@ export default function ContactsPage() {
     const [isDeleting, setIsDeleting] = useState(false);
 
     const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+    const [isEditContactOpen, setIsEditContactOpen] = useState(false);
+    const [contactToEdit, setContactToEdit] = useState<Contact | null>(null);
+
     const [isSaving, setIsSaving] = useState(false);
     const [isImporting, setIsImporting] = useState(false);
     const [bulkContactsText, setBulkContactsText] = useState("");
 
-    const form = useForm<ContactFormValues>({
+    const addForm = useForm<ContactFormValues>({
       resolver: zodResolver(contactSchema),
       defaultValues: {
         name: "",
@@ -129,11 +133,25 @@ export default function ContactsPage() {
       },
     });
 
+    const editForm = useForm<ContactFormValues>({
+      resolver: zodResolver(contactSchema),
+    });
+
     const contactsQuery = useMemoFirebase(() => 
         user ? collection(firestore, 'organizations', user.uid, 'contacts') : null,
         [firestore, user]
     );
     const { data: contacts, isLoading } = useCollection<Omit<Contact, 'id'>>(contactsQuery);
+
+    const handleEditClick = (contact: Contact) => {
+        setContactToEdit(contact);
+        editForm.reset({
+            name: contact.name,
+            email: contact.email || '',
+            phoneNumber: contact.phoneNumber || ''
+        });
+        setIsEditContactOpen(true);
+    };
 
     const handleDeleteClick = (contact: Contact) => {
         setContactToDelete(contact);
@@ -182,7 +200,7 @@ export default function ContactsPage() {
                 title: 'Contact Added',
                 description: `${data.name} has been added to your contacts.`,
             });
-            form.reset();
+            addForm.reset();
             setIsAddContactOpen(false);
         } catch (error: any) {
             console.error('Error adding contact:', error);
@@ -194,6 +212,37 @@ export default function ContactsPage() {
         } finally {
             setIsSaving(false);
         }
+    };
+
+    const handleUpdateContactSubmit = async (data: ContactFormValues) => {
+      if (!user || !firestore || !contactToEdit) return;
+  
+      setIsSaving(true);
+      try {
+          const contactRef = doc(firestore, 'organizations', user.uid, 'contacts', contactToEdit.id);
+          await updateDoc(contactRef, {
+            name: data.name,
+            email: data.email,
+            phoneNumber: data.phoneNumber,
+          });
+          
+          toast({
+              title: 'Contact Updated',
+              description: `${data.name} has been updated successfully.`,
+          });
+          editForm.reset();
+          setIsEditContactOpen(false);
+          setContactToEdit(null);
+      } catch (error: any) {
+          console.error('Error updating contact:', error);
+          toast({
+              title: 'Update Failed',
+              description: error.message || 'Failed to update contact',
+              variant: 'destructive',
+          });
+      } finally {
+          setIsSaving(false);
+      }
     };
 
     const formatPhoneNumber = (phone: string): string | null => {
@@ -344,10 +393,10 @@ export default function ContactsPage() {
                   <TabsTrigger value="bulk">Bulk Import</TabsTrigger>
                 </TabsList>
                 <TabsContent value="manual">
-                  <Form {...form}>
-                    <form onSubmit={form.handleSubmit(handleAddContactSubmit)} className="space-y-4 pt-4">
+                  <Form {...addForm}>
+                    <form onSubmit={addForm.handleSubmit(handleAddContactSubmit)} className="space-y-4 pt-4">
                       <FormField
-                        control={form.control}
+                        control={addForm.control}
                         name="name"
                         render={({ field }) => (
                           <FormItem>
@@ -360,7 +409,7 @@ export default function ContactsPage() {
                         )}
                       />
                       <FormField
-                        control={form.control}
+                        control={addForm.control}
                         name="email"
                         render={({ field }) => (
                           <FormItem>
@@ -373,7 +422,7 @@ export default function ContactsPage() {
                         )}
                       />
                       <FormField
-                        control={form.control}
+                        control={addForm.control}
                         name="phoneNumber"
                         render={({ field }) => (
                           <FormItem>
@@ -478,16 +527,14 @@ export default function ContactsPage() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuLabel>Actions</DropdownMenuLabel>
                         <DropdownMenuSeparator />
-                        <DropdownMenuItem asChild>
-                          <button className="flex items-center gap-2 w-full" disabled>
-                            <User className="h-4 w-4" />
-                            View Details
-                          </button>
+                        <DropdownMenuItem onClick={() => handleEditClick(contact)} className="cursor-pointer">
+                            <Edit className="h-4 w-4 mr-2" />
+                            Edit
                         </DropdownMenuItem>
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => handleDeleteClick(contact)}
-                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                          className="text-destructive focus:text-destructive focus:bg-destructive/10 cursor-pointer"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
@@ -536,7 +583,7 @@ export default function ContactsPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>Delete Contact</AlertDialogTitle>
             <AlertDialogDescription>
-              Are you sure you want to delete <strong>{contactToDelete?.name}</strong> ({contactToDelete?.email})? 
+              Are you sure you want to delete <strong>{contactToDelete?.name}</strong>? 
               This action cannot be undone.
             </AlertDialogDescription>
           </AlertDialogHeader>
@@ -552,6 +599,68 @@ export default function ContactsPage() {
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
+
+      {/* Edit Contact Dialog */}
+      <Dialog open={isEditContactOpen} onOpenChange={setIsEditContactOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Edit Contact</DialogTitle>
+            <DialogDescription>
+              Update the details for {contactToEdit?.name}.
+            </DialogDescription>
+          </DialogHeader>
+          <Form {...editForm}>
+            <form onSubmit={editForm.handleSubmit(handleUpdateContactSubmit)} className="space-y-4 pt-4">
+              <FormField
+                control={editForm.control}
+                name="name"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Full Name</FormLabel>
+                    <FormControl>
+                      <Input placeholder="John Doe" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="email"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Email Address (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="john@example.com" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <FormField
+                control={editForm.control}
+                name="phoneNumber"
+                render={({ field }) => (
+                  <FormItem>
+                    <FormLabel>Phone Number (Optional)</FormLabel>
+                    <FormControl>
+                      <Input placeholder="+233 24 123 4567" {...field} />
+                    </FormControl>
+                    <FormMessage />
+                  </FormItem>
+                )}
+              />
+              <DialogFooter>
+                <Button type="button" variant="ghost" onClick={() => setIsEditContactOpen(false)}>Cancel</Button>
+                <Button type="submit" disabled={isSaving}>
+                  {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Changes
+                </Button>
+              </DialogFooter>
+            </form>
+          </Form>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }
