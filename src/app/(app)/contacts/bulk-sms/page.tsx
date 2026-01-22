@@ -2,9 +2,9 @@
 
 import { useState } from 'react';
 import Link from 'next/link';
-import { useUser, useFirebase, useCollection, useMemoFirebase } from '@/firebase';
-import { collection } from 'firebase/firestore';
-import { Send, MessageSquare, Users } from 'lucide-react';
+import { useUser, useFirebase, useCollection, useDoc, useMemoFirebase } from '@/firebase';
+import { collection, doc } from 'firebase/firestore';
+import { Send, MessageSquare, Users, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import {
   Card,
@@ -34,12 +34,17 @@ import {
   BreadcrumbSeparator,
 } from "@/components/ui/breadcrumb";
 import { Skeleton } from '@/components/ui/skeleton';
+import { sendSmsAction } from '@/actions/send-sms-action';
 
 interface Contact {
   id: string;
   name: string;
   email: string;
   phoneNumber?: string;
+}
+
+interface OrgData {
+    companyName?: string;
 }
 
 export default function BulkSmsPage() {
@@ -56,6 +61,13 @@ export default function BulkSmsPage() {
     [firestore, user]
   );
   const { data: contacts, isLoading } = useCollection<Omit<Contact, 'id'>>(contactsQuery);
+
+  const orgRef = useMemoFirebase(
+    () => (user ? doc(firestore, `organizations/${user.uid}`) : null),
+    [firestore, user]
+  );
+  const { data: orgData } = useDoc<OrgData>(orgRef);
+
 
   const phoneContacts = contacts?.filter(c => c.phoneNumber) || [];
 
@@ -95,20 +107,53 @@ export default function BulkSmsPage() {
 
     setIsSending(true);
 
-    // --- Backend Functionality Placeholder ---
-    // In a real implementation, this is where you would invoke a Firebase Function.
-    // That function would use a service like Twilio to send the SMS messages.
-    // Since we cannot create Firebase Functions, we'll simulate the action
-    // and show a notification to the user.
+    const contactsToSend = phoneContacts.filter(c => selectedContacts.includes(c.id));
     
-    await new Promise(resolve => setTimeout(resolve, 1500)); // Simulate network delay
+    const sendPromises = contactsToSend.map(contact => {
+        if (!contact.phoneNumber) return Promise.resolve({ success: false, message: `No phone number for ${contact.name}` });
 
-    toast({
-      title: 'Feature In Development',
-      description: 'The backend for sending SMS is not yet implemented. This would be handled by a secure Firebase Function.',
+        return sendSmsAction({
+            to: contact.phoneNumber,
+            message: message,
+            organizationName: orgData?.companyName,
+        });
     });
 
-    setIsSending(false);
+    try {
+        const results = await Promise.all(sendPromises);
+        
+        const successfulSends = results.filter(r => r.success).length;
+        const failedSends = results.length - successfulSends;
+
+        if (successfulSends > 0) {
+            toast({
+                title: 'SMS Sent!',
+                description: `Successfully sent simulated messages to ${successfulSends} contact(s). Check the console for details.`,
+            });
+        }
+        
+        if (failedSends > 0) {
+            toast({
+                title: 'Some Messages Failed',
+                description: `Failed to send messages to ${failedSends} contact(s).`,
+                variant: 'destructive',
+            });
+        }
+
+        // Reset state
+        setSelectedContacts([]);
+        setMessage('');
+
+    } catch (error) {
+        console.error("Bulk SMS sending error:", error);
+        toast({
+            title: 'An Unexpected Error Occurred',
+            description: 'Could not complete the bulk SMS sending process.',
+            variant: 'destructive',
+        });
+    } finally {
+        setIsSending(false);
+    }
   };
 
   const isAllSelected = selectedContacts.length > 0 && selectedContacts.length === phoneContacts.length;
@@ -149,7 +194,10 @@ export default function BulkSmsPage() {
             <CardFooter className="flex-col items-start gap-4">
                <Button onClick={handleSend} disabled={isSending || selectedContacts.length === 0} className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90">
                 {isSending ? (
-                  'Sending...'
+                    <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Sending...
+                    </>
                 ) : (
                   <>
                     <Send className="mr-2 h-4 w-4" />
@@ -158,7 +206,7 @@ export default function BulkSmsPage() {
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Note: SMS sending requires backend setup (e.g., Firebase Functions) to be fully functional.
+                Note: This feature simulates sending SMS. Check the console for output.
               </p>
             </CardFooter>
           </Card>
