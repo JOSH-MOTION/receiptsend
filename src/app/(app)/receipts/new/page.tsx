@@ -31,9 +31,10 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 
-// Import the server action instead of the Genkit flow
 import { sendReceiptAction } from '@/actions/send-receipt-action';
 import type { SendReceiptInput } from '@/actions/receipt-types';
+import { sendSmsAction } from "@/actions/send-sms-action";
+import type { SendSmsInput } from "@/ai/flows/send-sms-flow";
 
 
 interface Item {
@@ -254,13 +255,38 @@ export default function NewReceiptPage() {
         });
       }
       
-      // If sendSMS is checked, show placeholder notification
-      if (sendSMS) {
+      // If sendSMS is checked, call the SMS server action
+      if (sendSMS && customerPhone) {
         toast({
-          title: 'Feature In Development',
-          description: 'SMS sending requires backend setup (e.g., Firebase Functions) to be fully functional.',
+            title: "Sending SMS...",
+            description: `Preparing to send SMS to ${customerPhone}.`,
+        });
+    
+        const smsMessage = `Your receipt from ${orgData.companyName || 'Us'} for GH₵${total.toFixed(2)} is ready. Thank you!`;
+    
+        const smsFlowInput: SendSmsInput = {
+            to: customerPhone,
+            message: smsMessage,
+            organizationName: orgData.companyName,
+        };
+    
+        // We don't need to await this, but we can catch errors
+        sendSmsAction(smsFlowInput).then(result => {
+            if (result.success) {
+                toast({
+                    title: "SMS Sent!",
+                    description: result.message,
+                });
+            } else {
+                toast({
+                    title: "SMS Failed",
+                    description: result.message,
+                    variant: "destructive",
+                });
+            }
         });
       }
+
 
       router.push(`/receipts/${newReceiptRef.id}`);
     } catch (error) {
@@ -328,7 +354,7 @@ export default function NewReceiptPage() {
                 <Input
                   id="customerPhone"
                   type="tel"
-                  placeholder="+1 (555) 123-4567"
+                  placeholder="+233 24 123 4567"
                   value={customerPhone}
                   onChange={(e) => setCustomerPhone(e.target.value)}
                 />
@@ -492,7 +518,7 @@ export default function NewReceiptPage() {
                     disabled={!customerPhone}
                   />
                   <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">
-                    Send receipt via SMS (Feature in development)
+                    Send receipt via SMS
                   </Label>
                 </div>
               </div>

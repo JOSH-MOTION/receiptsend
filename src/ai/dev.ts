@@ -7,6 +7,7 @@ import { googleAI } from '@genkit-ai/google-genai';
 
 // Load the flows from their files
 import './flows/send-receipt-flow';
+import './flows/send-sms-flow';
 
 // Configure Genkit
 genkit({
