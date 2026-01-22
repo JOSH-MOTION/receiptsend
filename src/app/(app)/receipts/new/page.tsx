@@ -1,3 +1,4 @@
+
 "use client";
 
 import { useState, useEffect } from "react";
@@ -34,7 +35,7 @@ import {
 import { sendReceiptAction } from '@/actions/send-receipt-action';
 import type { SendReceiptInput } from '@/actions/receipt-types';
 import { sendSmsAction } from "@/actions/send-sms-action";
-import type { SendSmsInput } from "@/ai/flows/send-sms-flow";
+import type { SendSmsInput } from "@/actions/sms-types";
 
 
 interface Item {

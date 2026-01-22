@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -5,8 +6,9 @@
  * This wraps the Genkit flow for sending SMS and makes it accessible from client components.
  */
 
-import { sendSms, type SendSmsInput } from '@/ai/flows/send-sms-flow';
+import { sendSms } from '@/ai/flows/send-sms-flow';
 import { z } from 'zod';
+import type { SendSmsInput } from '@/actions/sms-types';
 
 export async function sendSmsAction(input: SendSmsInput): Promise<{ success: boolean; message: string }> {
   try {

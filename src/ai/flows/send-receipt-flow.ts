@@ -10,38 +10,8 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
+import { SendReceiptInputSchema, type SendReceiptInput } from '@/actions/receipt-types';
 
-const ReceiptItemSchema = z.object({
-  name: z.string(),
-  quantity: z.number(),
-  price: z.number(),
-});
-
-const ReceiptDataSchema = z.object({
-  receiptNumber: z.string(),
-  customerName: z.string(),
-  customerEmail: z.string(),
-  items: z.array(ReceiptItemSchema),
-  totalAmount: z.number(),
-  thankYouMessage: z.string().optional(),
-  createdAt: z.string(), // Pass as ISO string
-  discount: z.number().optional(),
-  tax: z.number().optional(),
-  deliveryChannels: z.array(z.string()).optional(),
-});
-
-const OrganizationDataSchema = z.object({
-    companyName: z.string().optional(),
-    email: z.string().optional(),
-    address: z.string().optional(),
-});
-
-
-export const SendReceiptInputSchema = z.object({
-  receipt: ReceiptDataSchema,
-  organization: OrganizationDataSchema,
-});
-export type SendReceiptInput = z.infer<typeof SendReceiptInputSchema>;
 
 export async function sendReceipt(input: SendReceiptInput): Promise<{ success: boolean; message: string }> {
   return sendReceiptFlow(input);

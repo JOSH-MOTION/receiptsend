@@ -1,3 +1,4 @@
+
 'use server';
 /**
  * @fileOverview A flow for sending a SMS message.
@@ -5,13 +6,7 @@
 
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-
-export const SendSmsInputSchema = z.object({
-  to: z.string().describe('The recipient\'s phone number.'),
-  message: z.string().describe('The content of the SMS message.'),
-  organizationName: z.string().optional().describe('The name of the sending organization.'),
-});
-export type SendSmsInput = z.infer<typeof SendSmsInputSchema>;
+import { SendSmsInputSchema, type SendSmsInput } from '@/actions/sms-types';
 
 export async function sendSms(input: SendSmsInput): Promise<{ success: boolean; message: string }> {
   return sendSmsFlow(input);

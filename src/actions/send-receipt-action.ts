@@ -1,3 +1,4 @@
+
 'use server';
 
 /**
@@ -5,7 +6,8 @@
  * This wraps the genkit flow for sending receipts and makes it accessible from client components.
  */
 
-import { sendReceipt, type SendReceiptInput } from '@/ai/flows/send-receipt-flow';
+import { sendReceipt } from '@/ai/flows/send-receipt-flow';
+import type { SendReceiptInput } from '@/actions/receipt-types';
 
 /**
  * Send a receipt via email (server action)
