@@ -6,6 +6,7 @@ import {
   Trash2,
   MoreVertical,
   User,
+  MessageSquare,
 } from "lucide-react"
 import {
   Breadcrumb,
@@ -136,6 +137,14 @@ export default function ContactsPage() {
           </BreadcrumbList>
         </Breadcrumb>
         <div className="ml-auto flex items-center gap-2">
+          <Button asChild size="sm" variant="outline" className="h-8 gap-1">
+            <Link href="/contacts/bulk-sms">
+              <MessageSquare className="h-3.5 w-3.5" />
+              <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                Bulk SMS
+              </span>
+            </Link>
+          </Button>
            <Button size="sm" variant="outline" className="h-8 gap-1" disabled>
             <File className="h-3.5 w-3.5" />
             <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
