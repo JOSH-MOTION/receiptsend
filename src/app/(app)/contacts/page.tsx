@@ -7,7 +7,8 @@ import {
   MoreVertical,
   User,
   MessageSquare,
-  Loader2
+  Loader2,
+  Users
 } from "lucide-react"
 import {
   Breadcrumb,
@@ -62,6 +63,12 @@ import {
   DialogTrigger,
 } from "@/components/ui/dialog"
 import {
+  Tabs,
+  TabsContent,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Form,
   FormControl,
   FormField,
@@ -70,9 +77,11 @@ import {
   FormMessage,
 } from "@/components/ui/form";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import Link from "next/link"
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, deleteDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
+import { collection, deleteDoc, doc, addDoc, serverTimestamp, writeBatch } from "firebase/firestore";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
@@ -91,7 +100,7 @@ interface Contact {
 
 const contactSchema = z.object({
   name: z.string().min(1, "Name is required."),
-  email: z.string().email("Invalid email address."),
+  email: z.string().email("Invalid email address.").optional().or(z.literal('')),
   phoneNumber: z.string().optional(),
 });
 
@@ -108,6 +117,8 @@ export default function ContactsPage() {
 
     const [isAddContactOpen, setIsAddContactOpen] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
+    const [isImporting, setIsImporting] = useState(false);
+    const [bulkContactsText, setBulkContactsText] = useState("");
 
     const form = useForm<ContactFormValues>({
       resolver: zodResolver(contactSchema),
@@ -185,6 +196,85 @@ export default function ContactsPage() {
         }
     };
 
+    const formatPhoneNumber = (phone: string): string | null => {
+        if (!phone) return null;
+        let cleaned = phone.replace(/\D/g, ''); // remove non-digits
+        
+        // e.g. 0241234567 -> +233241234567
+        if (cleaned.startsWith('0') && cleaned.length === 10) {
+          return `+233${cleaned.substring(1)}`;
+        }
+        // e.g. 233241234567 -> +233241234567
+        if (cleaned.startsWith('233') && cleaned.length === 12) {
+          return `+${cleaned}`;
+        }
+        // e.g. +233241234567 is already good
+        if (cleaned.startsWith('233') && cleaned.length === 12) {
+          return `+${cleaned}`;
+        }
+        return null; // Invalid format
+    }
+
+    const handleBulkImport = async () => {
+        if (!user || !firestore || !bulkContactsText.trim()) return;
+
+        setIsImporting(true);
+        
+        const lines = bulkContactsText.split('\n').filter(line => line.trim() !== '');
+        let successCount = 0;
+        let errorCount = 0;
+
+        try {
+            const batch = writeBatch(firestore);
+            const contactsCol = collection(firestore, 'organizations', user.uid, 'contacts');
+
+            for (const line of lines) {
+                const parts = line.split(',');
+                const name = parts[0]?.trim();
+                const phone = parts[1]?.trim();
+
+                const formattedPhone = formatPhoneNumber(phone);
+
+                if (name && formattedPhone) {
+                    const newContactRef = doc(contactsCol); // Creates a ref with a new unique ID
+                    batch.set(newContactRef, {
+                        name,
+                        phoneNumber: formattedPhone,
+                        email: null, // As requested, email is not required
+                        organizationId: user.uid,
+                        createdAt: serverTimestamp(),
+                    });
+                    successCount++;
+                } else {
+                    errorCount++;
+                }
+            }
+            
+            if (successCount > 0) {
+              await batch.commit();
+            }
+
+            toast({
+              title: 'Import Complete',
+              description: `${successCount} contacts imported successfully. ${errorCount} lines had errors.`,
+            });
+            
+            setBulkContactsText("");
+            setIsAddContactOpen(false);
+
+        } catch (error: any) {
+            console.error('Error bulk importing contacts:', error);
+            toast({
+                title: 'Import Failed',
+                description: error.message || 'An error occurred during the bulk import.',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsImporting(false);
+        }
+    };
+
+
     const formatTimestamp = (ts: any) => {
       if (!ts) return '...';
       if (ts.seconds) {
@@ -233,63 +323,95 @@ export default function ContactsPage() {
                 </span>
               </Button>
             </DialogTrigger>
-            <DialogContent>
+            <DialogContent className="sm:max-w-lg">
               <DialogHeader>
-                <DialogTitle>Add New Contact</DialogTitle>
+                <DialogTitle>Add Contacts</DialogTitle>
                 <DialogDescription>
-                    Manually add a new contact to your list. They will be available for future receipts and bulk SMS.
+                    Add a single contact manually or paste a list to import in bulk.
                 </DialogDescription>
               </DialogHeader>
-              <Form {...form}>
-                <form onSubmit={form.handleSubmit(handleAddContactSubmit)} className="space-y-4">
-                  <FormField
-                    control={form.control}
-                    name="name"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Full Name</FormLabel>
-                        <FormControl>
-                          <Input placeholder="John Doe" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="email"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Email Address</FormLabel>
-                        <FormControl>
-                          <Input placeholder="john@example.com" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="phoneNumber"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>Phone Number (Optional)</FormLabel>
-                        <FormControl>
-                          <Input placeholder="+233 24 123 4567" {...field} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <DialogFooter>
-                    <Button type="button" variant="ghost" onClick={() => setIsAddContactOpen(false)}>Cancel</Button>
-                    <Button type="submit" disabled={isSaving}>
-                      {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                      Save Contact
-                    </Button>
-                  </DialogFooter>
-                </form>
-              </Form>
+              <Tabs defaultValue="manual" className="w-full">
+                <TabsList className="grid w-full grid-cols-2">
+                  <TabsTrigger value="manual">Manual Entry</TabsTrigger>
+                  <TabsTrigger value="bulk">Bulk Import</TabsTrigger>
+                </TabsList>
+                <TabsContent value="manual">
+                  <Form {...form}>
+                    <form onSubmit={form.handleSubmit(handleAddContactSubmit)} className="space-y-4 pt-4">
+                      <FormField
+                        control={form.control}
+                        name="name"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Full Name</FormLabel>
+                            <FormControl>
+                              <Input placeholder="John Doe" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="email"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Email Address (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="john@example.com" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <FormField
+                        control={form.control}
+                        name="phoneNumber"
+                        render={({ field }) => (
+                          <FormItem>
+                            <FormLabel>Phone Number (Optional)</FormLabel>
+                            <FormControl>
+                              <Input placeholder="+233 24 123 4567" {...field} />
+                            </FormControl>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setIsAddContactOpen(false)}>Cancel</Button>
+                        <Button type="submit" disabled={isSaving}>
+                          {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                          Save Contact
+                        </Button>
+                      </DialogFooter>
+                    </form>
+                  </Form>
+                </TabsContent>
+                <TabsContent value="bulk">
+                    <div className="space-y-4 py-4">
+                      <div className="space-y-2">
+                          <Label htmlFor="bulk-contacts">Contact List</Label>
+                          <Textarea
+                              id="bulk-contacts"
+                              placeholder="Paste your list here. e.g.:&#10;Jane Doe, 0241234567&#10;Richard Roe, +233557654321"
+                              rows={8}
+                              value={bulkContactsText}
+                              onChange={(e) => setBulkContactsText(e.target.value)}
+                          />
+                          <p className="text-xs text-muted-foreground">
+                              One contact per line. Format: <strong>Name, Phone Number</strong>.
+                          </p>
+                      </div>
+                    </div>
+                    <DialogFooter>
+                        <Button type="button" variant="ghost" onClick={() => setIsAddContactOpen(false)}>Cancel</Button>
+                        <Button onClick={handleBulkImport} disabled={isImporting}>
+                            {isImporting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                            Import Contacts
+                        </Button>
+                    </DialogFooter>
+                </TabsContent>
+              </Tabs>
             </DialogContent>
           </Dialog>
         </div>
@@ -331,7 +453,7 @@ export default function ContactsPage() {
                 contacts.map((contact) => (
                 <TableRow key={contact.id} className="hover:bg-secondary/30 transition-colors">
                   <TableCell className="font-medium">{contact.name}</TableCell>
-                  <TableCell>{contact.email}</TableCell>
+                  <TableCell>{contact.email || "-"}</TableCell>
                   <TableCell className="hidden md:table-cell">
                     {contact.phoneNumber || "-"}
                   </TableCell>
@@ -372,7 +494,7 @@ export default function ContactsPage() {
                     <TableCell colSpan={5} className="text-center py-12">
                       <div className="flex flex-col items-center gap-3">
                         <div className="p-4 rounded-full bg-secondary">
-                          <User className="h-8 w-8 text-primary" />
+                          <Users className="h-8 w-8 text-primary" />
                         </div>
                         <div>
                           <p className="text-lg font-semibold">No contacts found</p>
