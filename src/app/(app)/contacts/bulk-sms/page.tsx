@@ -133,9 +133,9 @@ export default function BulkSmsPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
         {/* Left column for message composition */}
         <div className="lg:col-span-1 space-y-6">
-           <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+           <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MessageSquare className="text-green-600" /> Compose Message</CardTitle>
+              <CardTitle className="flex items-center gap-2"><MessageSquare className="text-primary" /> Compose Message</CardTitle>
               <CardDescription>Write the SMS you want to send to the selected contacts.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -147,7 +147,7 @@ export default function BulkSmsPage() {
               />
             </CardContent>
             <CardFooter className="flex-col items-start gap-4">
-               <Button onClick={handleSend} disabled={isSending || selectedContacts.length === 0} className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+               <Button onClick={handleSend} disabled={isSending || selectedContacts.length === 0} className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90">
                 {isSending ? (
                   'Sending...'
                 ) : (
@@ -166,9 +166,9 @@ export default function BulkSmsPage() {
 
         {/* Right column for contact selection */}
         <div className="lg:col-span-2">
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="text-green-600" /> Select Contacts</CardTitle>
+              <CardTitle className="flex items-center gap-2"><Users className="text-primary" /> Select Contacts</CardTitle>
               <CardDescription>
                 Choose which contacts to send the message to. Only contacts with a phone number are shown.
               </CardDescription>

@@ -10,7 +10,7 @@ import {
   Loader2,
 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
-import { Card, CardTitle } from '@/components/ui/card';
+import { Card, CardTitle, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { format, fromUnixTime } from 'date-fns';
 import Link from 'next/link';
@@ -116,7 +116,6 @@ export default function ReceiptDetailsPage() {
         toast({
           title: 'Email Sent!',
           description: `Receipt has been resent to ${receipt.customerEmail}`,
-          className: "bg-red-50 border-red-200 dark:bg-red-950 dark:border-red-900",
         });
       } else {
         toast({
@@ -255,29 +254,28 @@ export default function ReceiptDetailsPage() {
        )}
 
       {/* Receipt Card */}
-      <Card className="p-6 sm:p-8 md:p-12 shadow-2xl bg-white dark:bg-black border border-red-200 dark:border-red-900">
+      <Card className="p-6 sm:p-8 md:p-12 shadow-2xl bg-card border-border">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start pb-8 mb-8">
             <div className='mb-6 sm:mb-0'>
-                <h1 className="text-3xl font-bold text-red-600">{orgData?.companyName || 'Business Name'}</h1>
+                <h1 className="text-3xl font-bold text-primary">{orgData?.companyName || 'Business Name'}</h1>
                 <p className="text-muted-foreground text-sm max-w-xs mt-2">{orgData?.address}</p>
             </div>
             <div className="text-left sm:text-right">
-                <h2 className="text-5xl font-extrabold text-gray-800 dark:text-gray-200 tracking-wider">INVOICE</h2>
+                <h2 className="text-5xl font-extrabold text-foreground tracking-wider">INVOICE</h2>
                 <p className="text-muted-foreground mt-2">
                     Invoice #: {receipt.receiptNumber}
                 </p>
             </div>
           </div>
           
-          <Separator className="my-8 border-red-200 dark:border-red-900" />
-
+          <Separator className="my-8" />
 
           {/* Customer Info & Dates */}
            <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
               <div>
-                  <h3 className="font-semibold mb-2 text-gray-500 dark:text-gray-400">BILLED TO</h3>
-                  <p className="font-medium text-gray-800 dark:text-gray-200">{receipt.customerName}</p>
+                  <h3 className="font-semibold mb-2 text-muted-foreground">BILLED TO</h3>
+                  <p className="font-medium text-foreground">{receipt.customerName}</p>
                   <p className="text-muted-foreground text-sm">{receipt.customerEmail}</p>
                   {receipt.customerPhoneNumber && (
                       <p className="text-muted-foreground text-sm">{receipt.customerPhoneNumber}</p>
@@ -285,37 +283,36 @@ export default function ReceiptDetailsPage() {
               </div>
               <div className="text-left md:text-right">
                   <div className="mb-2">
-                      <span className="font-semibold text-gray-500 dark:text-gray-400">Invoice Date: </span>
-                      <span className="text-gray-800 dark:text-gray-200">{formatTimestamp(receipt.createdAt)}</span>
+                      <span className="font-semibold text-muted-foreground">Invoice Date: </span>
+                      <span className="text-foreground">{formatTimestamp(receipt.createdAt)}</span>
                   </div>
                   <div>
-                      <span className="font-semibold text-gray-500 dark:text-gray-400">Due Date: </span>
-                       <span className="text-gray-800 dark:text-gray-200">{formatTimestamp(receipt.createdAt)}</span>
+                      <span className="font-semibold text-muted-foreground">Due Date: </span>
+                       <span className="text-foreground">{formatTimestamp(receipt.createdAt)}</span>
                   </div>
               </div>
           </div>
 
-
           {/* Items Table */}
           <div className="mb-8 overflow-x-auto">
             <table className="w-full">
-                <thead className="border-b-2 border-t-2 border-red-200 dark:border-red-900">
+                <thead className="border-b-2 border-t-2 border-border">
                     <tr>
-                        <th className="text-left p-3 font-bold text-red-600 uppercase tracking-wider text-sm">Description</th>
-                        <th className="text-right p-3 font-bold text-red-600 uppercase tracking-wider text-sm hidden sm:table-cell">Unit Cost</th>
-                        <th className="text-right p-3 font-bold text-red-600 uppercase tracking-wider text-sm hidden sm:table-cell">QTY</th>
-                        <th className="text-right p-3 font-bold text-red-600 uppercase tracking-wider text-sm">Amount</th>
+                        <th className="text-left p-3 font-bold text-primary uppercase tracking-wider text-sm">Description</th>
+                        <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">Unit Cost</th>
+                        <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">QTY</th>
+                        <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
                     {receipt.items.map((item, index) => (
-                    <tr key={index} className="border-b border-red-100 dark:border-red-900/50">
+                    <tr key={index} className="border-b border-secondary">
                         <td className="p-3">
-                            <p className="font-medium text-sm text-gray-800 dark:text-gray-200">{item.name}</p>
+                            <p className="font-medium text-sm text-foreground">{item.name}</p>
                         </td>
                         <td className="text-right p-3 text-sm hidden sm:table-cell">GH₵{item.price.toFixed(2)}</td>
                         <td className="text-right p-3 text-sm hidden sm:table-cell">{item.quantity}</td>
-                        <td className="text-right p-3 font-medium text-sm text-gray-800 dark:text-gray-200">GH₵{(item.quantity * item.price).toFixed(2)}</td>
+                        <td className="text-right p-3 font-medium text-sm text-foreground">GH₵{(item.quantity * item.price).toFixed(2)}</td>
                     </tr>
                     ))}
                 </tbody>
@@ -327,12 +324,12 @@ export default function ReceiptDetailsPage() {
             <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
                 <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium text-gray-800 dark:text-gray-200">GH₵{subtotal.toFixed(2)}</span>
+                    <span className="font-medium text-foreground">GH₵{subtotal.toFixed(2)}</span>
                 </div>
                 {receipt.discount && receipt.discount > 0 && (
                 <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Discount ({receipt.discount}%):</span>
-                    <span className="font-medium text-red-600">-GH₵{discountAmount.toFixed(2)}</span>
+                    <span className="font-medium text-destructive">-GH₵{discountAmount.toFixed(2)}</span>
                 </div>
                 )}
                 {receipt.tax && receipt.tax > 0 && (
@@ -341,7 +338,7 @@ export default function ReceiptDetailsPage() {
                     <span className="font-medium">+GH₵{taxAmount.toFixed(2)}</span>
                 </div>
                 )}
-                <div className="bg-red-600 text-white p-4 flex justify-between items-center rounded-lg mt-4">
+                <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center rounded-lg mt-4">
                     <span className="text-lg font-bold">Total</span>
                     <span className="text-xl font-bold">GH₵{receipt.totalAmount.toFixed(2)}</span>
                 </div>
@@ -351,7 +348,7 @@ export default function ReceiptDetailsPage() {
           {/* Note & Footer */}
           <div>
             <div className="mb-8">
-              <h4 className="font-bold text-red-600 mb-2">NOTES</h4>
+              <h4 className="font-bold text-primary mb-2">NOTES</h4>
               <p className="text-sm text-muted-foreground">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
             </div>
           </div>

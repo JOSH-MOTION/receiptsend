@@ -59,12 +59,13 @@ interface Receipt {
   totalAmount: number;
   pdfUrl?: string;
   createdAt: { seconds: number, nanoseconds: number } | Date;
+  deliveryChannels?: string[];
 }
 
 const chartConfig = {
   total: {
     label: "Revenue",
-    color: "hsl(142 76% 36%)", // green-600
+    color: "hsl(var(--primary))",
   },
 };
 
@@ -174,17 +175,17 @@ export default function Dashboard() {
   }, [allReceipts, isClient]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/20 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-secondary/20 via-background to-background p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         {/* Header */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Dashboard
             </h1>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">Welcome back! Here's what's happening today.</p>
           </div>
-          <Button asChild className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg">
+          <Button asChild className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg">
             <Link href="/receipts/new">Create Receipt</Link>
           </Button>
         </div>
@@ -192,14 +193,14 @@ export default function Dashboard() {
         {/* Stats Grid - Responsive */}
         <div className="grid gap-4 sm:gap-6 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {[
-            { title: "Total Revenue", value: `GH₵${stats.totalRevenue.toFixed(2)}`, change: stats.revenuePercentage, icon: DollarSign, color: "from-green-500 to-emerald-600" },
-            { title: "Receipts Sent", value: stats.receiptsSent, change: stats.receiptsPercentage, icon: CreditCard, color: "from-emerald-500 to-teal-600" },
-            { title: "New Customers", value: stats.newCustomers, change: stats.customersPercentage, icon: Users, color: "from-teal-500 to-cyan-600" },
-            { title: "Active Now", value: stats.engagement, change: null, icon: Activity, color: "from-green-500 to-lime-600", suffix: "last hour" },
+            { title: "Total Revenue", value: `GH₵${stats.totalRevenue.toFixed(2)}`, change: stats.revenuePercentage, icon: DollarSign, color: "from-red-500 to-orange-600" },
+            { title: "Receipts Sent", value: stats.receiptsSent, change: stats.receiptsPercentage, icon: CreditCard, color: "from-orange-500 to-amber-600" },
+            { title: "New Customers", value: stats.newCustomers, change: stats.customersPercentage, icon: Users, color: "from-amber-500 to-yellow-600" },
+            { title: "Active Now", value: stats.engagement, change: null, icon: Activity, color: "from-red-500 to-pink-600", suffix: "last hour" },
           ].map((stat, i) => (
             <Card
               key={i}
-              className="relative overflow-hidden backdrop-blur-xl bg-white/80 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
+              className="relative overflow-hidden backdrop-blur-xl bg-card/80 border-border shadow-xl hover:shadow-2xl transition-all duration-500 hover:-translate-y-2"
             >
               <div className="absolute inset-0 bg-gradient-to-br opacity-10" />
               <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -225,14 +226,14 @@ export default function Dashboard() {
         {/* Main Content - Responsive Grid */}
         <div className="grid gap-6 grid-cols-1 lg:grid-cols-7">
           {/* Recent Transactions */}
-          <Card className="lg:col-span-4 backdrop-blur-xl bg-white/70 dark:bg-black/30 border-red-200 dark:border-red-900 shadow-2xl">
+          <Card className="lg:col-span-4 backdrop-blur-xl bg-card/70 border-border shadow-2xl">
             <CardHeader>
               <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
                 <div>
                   <CardTitle className="text-xl sm:text-2xl">Recent Receipts</CardTitle>
                   <CardDescription className="text-sm">Latest customer transactions</CardDescription>
                 </div>
-                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto backdrop-blur-md border-red-200 dark:border-red-800">
+                <Button variant="outline" size="sm" asChild className="w-full sm:w-auto backdrop-blur-md">
                   <Link href="/receipts" className="flex items-center gap-2">
                     View All <ArrowUpRight className="h-4 w-4" />
                   </Link>
@@ -262,19 +263,19 @@ export default function Dashboard() {
                       ))
                     ) : recentReceipts.length > 0 ? (
                       recentReceipts.map((receipt) => (
-                        <TableRow key={receipt.id} className="hover:bg-red-50/50 dark:hover:bg-red-900/10 transition-colors">
+                        <TableRow key={receipt.id} className="hover:bg-secondary/50 dark:hover:bg-secondary/10 transition-colors">
                           <TableCell>
                             <div className="font-medium text-sm">{receipt.customerName}</div>
                             <div className="text-xs text-muted-foreground hidden sm:block">{receipt.customerEmail}</div>
                           </TableCell>
                           <TableCell className="hidden sm:table-cell">
                             <div className="flex gap-2 flex-wrap">
-                              {receipt.customerEmail && <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-xs"><Mail className="h-3 w-3 mr-1" />Email</Badge>}
-                              {receipt.customerPhoneNumber && <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-xs"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>}
+                              {(receipt.deliveryChannels || []).includes("email") && <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-xs"><Mail className="h-3 w-3 mr-1" />Email</Badge>}
+                              {(receipt.deliveryChannels || []).includes("sms") && <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs"><Smartphone className="h-3 w-3 mr-1" />SMS</Badge>}
                             </div>
                           </TableCell>
                           <TableCell className="text-sm">{isClient ? format(formatTimestamp(receipt.createdAt), "MMM d, yyyy") : "..."}</TableCell>
-                          <TableCell className="text-right font-semibold text-red-600 dark:text-red-400 text-sm">GH₵{receipt.totalAmount.toFixed(2)}</TableCell>
+                          <TableCell className="text-right font-semibold text-primary text-sm">GH₵{receipt.totalAmount.toFixed(2)}</TableCell>
                         </TableRow>
                       ))
                     ) : (
@@ -291,7 +292,7 @@ export default function Dashboard() {
           </Card>
 
           {/* Revenue Chart - Responsive */}
-          <Card className="lg:col-span-3 backdrop-blur-xl bg-white/70 dark:bg-black/30 border-red-200 dark:border-red-900 shadow-2xl">
+          <Card className="lg:col-span-3 backdrop-blur-xl bg-card/70 border-border shadow-2xl">
             <CardHeader>
               <CardTitle className="text-xl sm:text-2xl">Revenue Overview</CardTitle>
               <CardDescription className="text-sm">Monthly receipt totals</CardDescription>
@@ -318,7 +319,7 @@ export default function Dashboard() {
                           interval={0}
                         />
                         <ChartTooltip
-                          content={<ChartTooltipContent className="backdrop-blur-lg bg-white/90 dark:bg-black/80" />}
+                          content={<ChartTooltipContent className="backdrop-blur-lg bg-background/90" />}
                           cursor={{ fill: 'hsl(var(--muted)/0.2)' }}
                         />
                         <Bar

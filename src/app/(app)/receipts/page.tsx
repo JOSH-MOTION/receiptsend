@@ -162,19 +162,19 @@ export default function ReceiptsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-secondary/20 via-background to-background p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         {/* Header - Responsive */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Receipts
             </h1>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">
               Manage all your digital receipts in one place
             </p>
           </div>
-          <Button asChild className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg">
+          <Button asChild className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg">
             <Link href="/receipts/new" className="flex items-center gap-2">
               <Plus className="h-5 w-5" />
               New Receipt
@@ -184,34 +184,34 @@ export default function ReceiptsPage() {
 
         {/* Stats Cards - Responsive Grid */}
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Receipts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-green-600">{filteredReceipts.length}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary">{filteredReceipts.length}</div>
               <p className="text-xs text-muted-foreground mt-2">
                 {receipts && receipts.length > filteredReceipts.length && `${receipts.length - filteredReceipts.length} filtered out`}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-emerald-600">GH₵{totalRevenue.toFixed(2)}</div>
+              <div className="text-2xl sm:text-3xl font-bold text-primary">GH₵{totalRevenue.toFixed(2)}</div>
               <p className="text-xs text-muted-foreground mt-2">From selected receipts</p>
             </CardContent>
           </Card>
 
-          <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Receipt Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-teal-600">
+              <div className="text-2xl sm:text-3xl font-bold text-primary">
               GH₵{filteredReceipts.length > 0 ? (totalRevenue / filteredReceipts.length).toFixed(2) : "0.00"}
               </div>
               <p className="text-xs text-muted-foreground mt-2">Per transaction</p>
@@ -220,7 +220,7 @@ export default function ReceiptsPage() {
         </div>
 
         {/* Filters */}
-        <Card className="backdrop-blur-xl bg-white/60 dark:bg-black/30 border-red-200 dark:border-red-900 shadow-2xl">
+        <Card className="backdrop-blur-xl bg-card/60 border-border shadow-2xl">
           <CardHeader>
             <CardTitle className="text-xl sm:text-2xl">All Receipts</CardTitle>
             <CardDescription className="text-sm">Search and filter your receipt history</CardDescription>
@@ -234,11 +234,11 @@ export default function ReceiptsPage() {
                   placeholder="Search by customer, email, or receipt number..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  className="pl-10 border-red-200 dark:border-red-900 focus-visible:ring-red-500"
+                  className="pl-10"
                 />
               </div>
               <Select value={filterChannel} onValueChange={setFilterChannel}>
-                <SelectTrigger className="w-full sm:w-48 border-red-200 dark:border-red-900">
+                <SelectTrigger className="w-full sm:w-48">
                   <Filter className="h-4 w-4 mr-2" />
                   <SelectValue placeholder="Filter by channel" />
                 </SelectTrigger>
@@ -251,12 +251,12 @@ export default function ReceiptsPage() {
             </div>
 
             {/* Receipts Table - Responsive with Horizontal Scroll */}
-            <div className="rounded-lg border border-red-200 dark:border-red-900 overflow-hidden">
+            <div className="rounded-lg border overflow-hidden">
               <div className="overflow-x-auto">
                 <div className="min-w-[600px]">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-red-50 dark:bg-red-950/30 hover:bg-red-50 dark:hover:bg-red-950/30 border-red-200 dark:border-red-900">
+                      <TableRow className="bg-secondary/50 hover:bg-secondary/50">
                         <TableHead className="font-semibold">Receipt #</TableHead>
                         <TableHead className="font-semibold">Customer</TableHead>
                         <TableHead className="font-semibold hidden md:table-cell">Channel</TableHead>
@@ -268,22 +268,22 @@ export default function ReceiptsPage() {
                     <TableBody>
                       {isLoading ? (
                         [...Array(8)].map((_, i) => (
-                          <TableRow key={i} className="animate-pulse border-red-100 dark:border-red-900">
-                            <TableCell><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-24" /></TableCell>
-                            <TableCell><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-32" /></TableCell>
-                            <TableCell className="hidden md:table-cell"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-20" /></TableCell>
-                            <TableCell className="hidden lg:table-cell"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-24" /></TableCell>
-                            <TableCell className="text-right"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-16 ml-auto" /></TableCell>
-                            <TableCell className="text-right"><div className="h-4 bg-red-200 dark:bg-red-900 rounded w-8 ml-auto" /></TableCell>
+                          <TableRow key={i} className="animate-pulse">
+                            <TableCell><div className="h-4 bg-muted rounded w-24" /></TableCell>
+                            <TableCell><div className="h-4 bg-muted rounded w-32" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><div className="h-4 bg-muted rounded w-20" /></TableCell>
+                            <TableCell className="hidden lg:table-cell"><div className="h-4 bg-muted rounded w-24" /></TableCell>
+                            <TableCell className="text-right"><div className="h-4 bg-muted rounded w-16 ml-auto" /></TableCell>
+                            <TableCell className="text-right"><div className="h-4 bg-muted rounded w-8 ml-auto" /></TableCell>
                           </TableRow>
                         ))
                       ) : filteredReceipts.length > 0 ? (
                         filteredReceipts.map((receipt) => (
                           <TableRow
                             key={receipt.id}
-                            className="hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors border-red-100 dark:border-red-900"
+                            className="hover:bg-secondary/30 transition-colors"
                           >
-                            <TableCell className="font-mono font-medium text-red-700 dark:text-red-400 text-sm">
+                            <TableCell className="font-mono font-medium text-primary text-sm">
                               {receipt.receiptNumber}
                             </TableCell>
                             <TableCell>
@@ -293,13 +293,13 @@ export default function ReceiptsPage() {
                             <TableCell className="hidden md:table-cell">
                               <div className="flex gap-2 flex-wrap">
                                 {receipt.deliveryChannels?.includes("email") && (
-                                  <Badge variant="secondary" className="bg-red-100 text-red-700 dark:bg-red-900 dark:text-red-300 text-xs">
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-xs">
                                     <Mail className="h-3 w-3 mr-1" />
                                     Email
                                   </Badge>
                                 )}
                                 {receipt.deliveryChannels?.includes("sms") && (
-                                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 dark:bg-emerald-900 dark:text-emerald-300 text-xs">
+                                  <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs">
                                     <Smartphone className="h-3 w-3 mr-1" />
                                     SMS
                                   </Badge>
@@ -318,7 +318,7 @@ export default function ReceiptsPage() {
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-red-100 dark:hover:bg-red-900/50">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8">
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
@@ -334,7 +334,7 @@ export default function ReceiptsPage() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteClick(receipt)}
-                                    className="text-red-600 focus:text-red-600 focus:bg-red-50 dark:focus:bg-red-950/20"
+                                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete
@@ -348,8 +348,8 @@ export default function ReceiptsPage() {
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-12">
                             <div className="flex flex-col items-center gap-3">
-                              <div className="p-4 rounded-full bg-red-100 dark:bg-red-900/30">
-                                <FileText className="h-8 w-8 text-red-600" />
+                              <div className="p-4 rounded-full bg-secondary">
+                                <FileText className="h-8 w-8 text-primary" />
                               </div>
                               <div>
                                 <p className="text-lg font-semibold">No receipts found</p>
@@ -360,7 +360,7 @@ export default function ReceiptsPage() {
                                 </p>
                               </div>
                               {!searchQuery && filterChannel === "all" && (
-                                <Button asChild className="mt-4 bg-gradient-to-r from-red-600 to-rose-600 hover:from-red-700 hover:to-rose-700">
+                                <Button asChild className="mt-4 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90">
                                   <Link href="/receipts/new">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Create Receipt
@@ -397,7 +397,7 @@ export default function ReceiptsPage() {
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700 focus:ring-red-600"
+              className="bg-destructive hover:bg-destructive/90"
             >
               {isDeleting ? "Deleting..." : "Delete Receipt"}
             </AlertDialogAction>

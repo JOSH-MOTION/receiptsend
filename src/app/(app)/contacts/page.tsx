@@ -185,7 +185,7 @@ export default function ContactsPage() {
                   ))
               ) : contacts && contacts.length > 0 ? (
                 contacts.map((contact) => (
-                <TableRow key={contact.id} className="hover:bg-green-50 dark:hover:bg-green-950/30 transition-colors">
+                <TableRow key={contact.id} className="hover:bg-secondary/30 transition-colors">
                   <TableCell className="font-medium">{contact.name}</TableCell>
                   <TableCell>{contact.email}</TableCell>
                   <TableCell className="hidden md:table-cell">
@@ -197,7 +197,7 @@ export default function ContactsPage() {
                   <TableCell className="text-right">
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
-                        <Button variant="ghost" size="icon" className="h-8 w-8 hover:bg-green-100 dark:hover:bg-green-900/50">
+                        <Button variant="ghost" size="icon" className="h-8 w-8">
                           <MoreVertical className="h-4 w-4" />
                         </Button>
                       </DropdownMenuTrigger>
@@ -213,7 +213,7 @@ export default function ContactsPage() {
                         <DropdownMenuSeparator />
                         <DropdownMenuItem
                           onClick={() => handleDeleteClick(contact)}
-                          className="text-red-600 focus:text-red-600 focus:bg-red-50"
+                          className="text-destructive focus:text-destructive focus:bg-destructive/10"
                         >
                           <Trash2 className="h-4 w-4 mr-2" />
                           Delete
@@ -227,8 +227,8 @@ export default function ContactsPage() {
                 <TableRow>
                     <TableCell colSpan={5} className="text-center py-12">
                       <div className="flex flex-col items-center gap-3">
-                        <div className="p-4 rounded-full bg-green-100 dark:bg-green-900/30">
-                          <User className="h-8 w-8 text-green-600" />
+                        <div className="p-4 rounded-full bg-secondary">
+                          <User className="h-8 w-8 text-primary" />
                         </div>
                         <div>
                           <p className="text-lg font-semibold">No contacts found</p>
@@ -236,7 +236,7 @@ export default function ContactsPage() {
                             Contacts are automatically created when you create receipts.
                           </p>
                         </div>
-                        <Button asChild className="mt-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700">
+                        <Button asChild className="mt-4 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90">
                           <Link href="/receipts/new">
                             <PlusCircle className="h-4 w-4 mr-2" />
                             Create Receipt
@@ -271,7 +271,7 @@ export default function ContactsPage() {
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
-              className="bg-red-600 hover:bg-red-700"
+              className="bg-destructive hover:bg-destructive/90"
             >
               {isDeleting ? 'Deleting...' : 'Delete'}
             </AlertDialogAction>

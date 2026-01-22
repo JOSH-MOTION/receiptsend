@@ -64,7 +64,7 @@ export default function SettingsPage() {
   };
 
   const renderSkeleton = () => (
-    <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+    <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
       <CardHeader>
         <Skeleton className="h-6 w-1/2" />
         <Skeleton className="h-4 w-3/4" />
@@ -87,10 +87,10 @@ export default function SettingsPage() {
 
   if (isLoading) {
     return (
-       <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-6 lg:p-8">
+       <div className="min-h-screen bg-gradient-to-br from-secondary/20 via-background to-background p-4 md:p-6 lg:p-8">
         <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
               Settings
             </h1>
             <p className="text-muted-foreground mt-2 text-sm sm:text-base">
@@ -104,10 +104,10 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-green-50 via-white to-emerald-50 dark:from-black dark:via-slate-900 dark:to-green-950/30 p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-gradient-to-br from-secondary/20 via-background to-background p-4 md:p-6 lg:p-8">
       <div className="max-w-5xl mx-auto space-y-6 md:space-y-8">
         <div>
-          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
+          <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
             Settings
           </h1>
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">
@@ -116,13 +116,13 @@ export default function SettingsPage() {
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
-          <TabsList className="grid w-full grid-cols-2 md:grid-cols-2 gap-2 bg-green-100/50 dark:bg-green-950/30 p-1 h-auto">
+          <TabsList className="grid w-full grid-cols-2 md:grid-cols-2 gap-2 bg-muted p-1 h-auto">
             <TabsTrigger value="profile"><Building2 className="h-4 w-4 mr-2" />Profile</TabsTrigger>
             <TabsTrigger value="branding"><Palette className="h-4 w-4 mr-2" />Customization</TabsTrigger>
           </TabsList>
           
           <TabsContent value="profile">
-            <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+            <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
               <CardHeader>
                 <CardTitle>Organization Profile</CardTitle>
                 <CardDescription>This is your business information that will appear on receipts.</CardDescription>
@@ -166,7 +166,7 @@ export default function SettingsPage() {
           </TabsContent>
 
            <TabsContent value="branding">
-             <Card className="backdrop-blur-xl bg-white/70 dark:bg-black/40 border-green-200 dark:border-green-900 shadow-xl">
+             <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
               <CardHeader>
                 <CardTitle>Receipt Customization</CardTitle>
                 <CardDescription>Customize the look and feel of your receipts.</CardDescription>

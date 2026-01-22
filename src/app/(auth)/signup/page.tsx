@@ -59,7 +59,6 @@ export default function SignupPage() {
       toast({
         title: "Account Created!",
         description: "Finalizing your organization setup...",
-        className: "bg-green-100 dark:bg-green-900 border-green-300 dark:border-green-700",
       });
 
       // 2. Create Organization document in Firestore
@@ -97,7 +96,7 @@ export default function SignupPage() {
   };
 
   return (
-    <Card className="shadow-2xl backdrop-blur-xl bg-white/70 dark:bg-black/50 border-green-200 dark:border-green-900">
+    <Card className="shadow-2xl backdrop-blur-xl bg-card/70 border-border">
       <CardHeader>
         <CardTitle className="text-2xl font-bold">Create an Account</CardTitle>
         <CardDescription>
@@ -155,7 +154,7 @@ export default function SignupPage() {
                 </FormItem>
               )}
             />
-            <Button type="submit" className="w-full bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700" disabled={isLoading}>
+            <Button type="submit" className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90" disabled={isLoading}>
               {isLoading ? (
                 <>
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" />
