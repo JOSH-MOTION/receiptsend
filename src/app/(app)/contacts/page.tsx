@@ -7,6 +7,7 @@ import {
   MoreVertical,
   User,
   MessageSquare,
+  Loader2
 } from "lucide-react"
 import {
   Breadcrumb,
@@ -51,12 +52,34 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
+import {
+  Dialog,
+  DialogContent,
+  DialogDescription,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+  DialogTrigger,
+} from "@/components/ui/dialog"
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import Link from "next/link"
 import { useUser, useFirebase, useCollection, useMemoFirebase } from "@/firebase";
-import { collection, deleteDoc, doc } from "firebase/firestore";
+import { collection, deleteDoc, doc, addDoc, serverTimestamp } from "firebase/firestore";
 import { format } from "date-fns";
 import { useState } from "react";
 import { useToast } from "@/hooks/use-toast";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
+
 
 interface Contact {
   id: string;
@@ -66,6 +89,14 @@ interface Contact {
   createdAt: { seconds: number; nanoseconds: number; } | Date;
 }
 
+const contactSchema = z.object({
+  name: z.string().min(1, "Name is required."),
+  email: z.string().email("Invalid email address."),
+  phoneNumber: z.string().optional(),
+});
+
+type ContactFormValues = z.infer<typeof contactSchema>;
+
 export default function ContactsPage() {
     const { user } = useUser();
     const { firestore } = useFirebase();
@@ -74,6 +105,18 @@ export default function ContactsPage() {
     const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
     const [contactToDelete, setContactToDelete] = useState<Contact | null>(null);
     const [isDeleting, setIsDeleting] = useState(false);
+
+    const [isAddContactOpen, setIsAddContactOpen] = useState(false);
+    const [isSaving, setIsSaving] = useState(false);
+
+    const form = useForm<ContactFormValues>({
+      resolver: zodResolver(contactSchema),
+      defaultValues: {
+        name: "",
+        email: "",
+        phoneNumber: "",
+      },
+    });
 
     const contactsQuery = useMemoFirebase(() => 
         user ? collection(firestore, 'organizations', user.uid, 'contacts') : null,
@@ -109,6 +152,36 @@ export default function ContactsPage() {
             setIsDeleting(false);
             setDeleteDialogOpen(false);
             setContactToDelete(null);
+        }
+    };
+    
+    const handleAddContactSubmit = async (data: ContactFormValues) => {
+        if (!user || !firestore) return;
+
+        setIsSaving(true);
+        try {
+            const contactsCol = collection(firestore, 'organizations', user.uid, 'contacts');
+            await addDoc(contactsCol, {
+                ...data,
+                organizationId: user.uid,
+                createdAt: serverTimestamp(),
+            });
+            
+            toast({
+                title: 'Contact Added',
+                description: `${data.name} has been added to your contacts.`,
+            });
+            form.reset();
+            setIsAddContactOpen(false);
+        } catch (error: any) {
+            console.error('Error adding contact:', error);
+            toast({
+                title: 'Add Failed',
+                description: error.message || 'Failed to add contact',
+                variant: 'destructive',
+            });
+        } finally {
+            setIsSaving(false);
         }
     };
 
@@ -151,12 +224,74 @@ export default function ContactsPage() {
               Export
             </span>
           </Button>
-          <Button size="sm" className="h-8 gap-1" disabled>
-            <PlusCircle className="h-3.5 w-3.5" />
-            <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
-              Add Contact
-            </span>
-          </Button>
+          <Dialog open={isAddContactOpen} onOpenChange={setIsAddContactOpen}>
+            <DialogTrigger asChild>
+              <Button size="sm" className="h-8 gap-1">
+                <PlusCircle className="h-3.5 w-3.5" />
+                <span className="sr-only sm:not-sr-only sm:whitespace-nowrap">
+                  Add Contact
+                </span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent>
+              <DialogHeader>
+                <DialogTitle>Add New Contact</DialogTitle>
+                <DialogDescription>
+                    Manually add a new contact to your list. They will be available for future receipts and bulk SMS.
+                </DialogDescription>
+              </DialogHeader>
+              <Form {...form}>
+                <form onSubmit={form.handleSubmit(handleAddContactSubmit)} className="space-y-4">
+                  <FormField
+                    control={form.control}
+                    name="name"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Full Name</FormLabel>
+                        <FormControl>
+                          <Input placeholder="John Doe" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="email"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Email Address</FormLabel>
+                        <FormControl>
+                          <Input placeholder="john@example.com" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <FormField
+                    control={form.control}
+                    name="phoneNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Phone Number (Optional)</FormLabel>
+                        <FormControl>
+                          <Input placeholder="+233 24 123 4567" {...field} />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                  <DialogFooter>
+                    <Button type="button" variant="ghost" onClick={() => setIsAddContactOpen(false)}>Cancel</Button>
+                    <Button type="submit" disabled={isSaving}>
+                      {isSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                      Save Contact
+                    </Button>
+                  </DialogFooter>
+                </form>
+              </Form>
+            </DialogContent>
+          </Dialog>
         </div>
       </div>
       <Card>
