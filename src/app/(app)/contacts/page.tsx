@@ -229,18 +229,26 @@ export default function ContactsPage() {
             const contactsCol = collection(firestore, 'organizations', user.uid, 'contacts');
 
             for (const line of lines) {
-                const parts = line.split(',');
-                const name = parts[0]?.trim();
-                const phone = parts[1]?.trim();
+                const parts = line.split(',').map(p => p.trim()).filter(p => p);
+                let name: string | undefined;
+                let phone: string | undefined;
 
-                const formattedPhone = formatPhoneNumber(phone);
+                if (parts.length >= 2) {
+                    name = parts[0];
+                    phone = parts[1];
+                } else if (parts.length === 1) {
+                    phone = parts[0];
+                    name = parts[0]; // Use phone as name if only phone is provided
+                }
+
+                const formattedPhone = phone ? formatPhoneNumber(phone) : null;
 
                 if (name && formattedPhone) {
                     const newContactRef = doc(contactsCol); // Creates a ref with a new unique ID
                     batch.set(newContactRef, {
                         name,
                         phoneNumber: formattedPhone,
-                        email: null, // As requested, email is not required
+                        email: null,
                         organizationId: user.uid,
                         createdAt: serverTimestamp(),
                     });
@@ -393,13 +401,13 @@ export default function ContactsPage() {
                           <Label htmlFor="bulk-contacts">Contact List</Label>
                           <Textarea
                               id="bulk-contacts"
-                              placeholder="Paste your list here. e.g.:&#10;Jane Doe, 0241234567&#10;Richard Roe, +233557654321"
+                              placeholder="Paste your list here. One contact per line.&#10;e.g.: Jane Doe, 0241234567&#10;e.g.: 0557654321"
                               rows={8}
                               value={bulkContactsText}
                               onChange={(e) => setBulkContactsText(e.target.value)}
                           />
                           <p className="text-xs text-muted-foreground">
-                              One contact per line. Format: <strong>Name, Phone Number</strong>.
+                              Use <strong>Name, Phone Number</strong> or just <strong>Phone Number</strong> on each line.
                           </p>
                       </div>
                     </div>
