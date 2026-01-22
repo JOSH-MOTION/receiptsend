@@ -23,6 +23,7 @@ export const OrganizationDataSchema = z.object({
   companyName: z.string().optional(),
   email: z.string().optional(),
   address: z.string().optional(),
+  logoUrl: z.string().optional(),
 });
 
 export const SendReceiptInputSchema = z.object({

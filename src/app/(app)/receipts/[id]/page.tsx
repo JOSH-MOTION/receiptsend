@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
+import Image from 'next/image';
 import {
   ArrowLeft,
   Printer,
@@ -107,6 +108,7 @@ export default function ReceiptDetailsPage() {
           companyName: orgData.companyName,
           email: orgData.email,
           address: orgData.address,
+          logoUrl: orgData.logoUrl,
         }
       };
 
@@ -257,9 +259,19 @@ export default function ReceiptDetailsPage() {
       <Card className="p-6 sm:p-8 md:p-12 shadow-2xl bg-card border-border">
           {/* Header */}
           <div className="flex flex-col sm:flex-row justify-between items-start pb-8 mb-8">
-            <div className='mb-6 sm:mb-0'>
-                <h1 className="text-3xl font-bold text-primary">{orgData?.companyName || 'Business Name'}</h1>
-                <p className="text-muted-foreground text-sm max-w-xs mt-2">{orgData?.address}</p>
+            <div className='flex items-start gap-4 mb-6 sm:mb-0'>
+                <div className="relative w-16 h-16 flex-shrink-0">
+                    <Image 
+                        src={orgData?.logoUrl || '/logo.png'} 
+                        alt={orgData?.companyName || 'Company Logo'}
+                        fill
+                        className="object-contain"
+                    />
+                </div>
+                <div>
+                    <h1 className="text-2xl font-bold text-primary">{orgData?.companyName || 'Business Name'}</h1>
+                    <p className="text-muted-foreground text-sm max-w-xs mt-1">{orgData?.address}</p>
+                </div>
             </div>
             <div className="text-left sm:text-right">
                 <h2 className="text-5xl font-extrabold text-foreground tracking-wider">INVOICE</h2>

@@ -236,6 +236,7 @@ export default function NewReceiptPage() {
                 companyName: orgData.companyName,
                 email: orgData.email,
                 address: orgData.address,
+                logoUrl: orgData.logoUrl,
             }
         };
 

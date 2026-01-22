@@ -22,6 +22,10 @@
           "type": "string",
           "description": "The company's physical address."
         },
+        "logoUrl": {
+          "type": "string",
+          "description": "URL or Data URI of the company's logo."
+        },
         "thankYouMessage": {
           "type": "string",
           "description": "Default thank you message for receipts."

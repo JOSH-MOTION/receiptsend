@@ -32,6 +32,10 @@ const sendReceiptFlow = ai.defineFlow(
     console.log('From:', input.organization.email || 'noreply@sendora.com');
     console.log('Subject:', `Your receipt from ${input.organization.companyName || 'Us'} (#${input.receipt.receiptNumber})`);
     
+    if (input.organization.logoUrl) {
+      console.log('Including company logo.');
+    }
+
     // Here you would construct the email body (e.g., using HTML)
     // and use an email sending service.
     

@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Building, Palette, Save, Loader2,Building2 } from "lucide-react";
-import { Button } from "@/components/ui/button";
+import Image from "next/image";
+import { Building, Palette, Save, Loader2,Building2, Upload } from "lucide-react";
+import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import {
@@ -14,11 +15,14 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { useToast } from "@/hooks/use-toast";
 import { useUser, useFirebase, useDoc, useMemoFirebase } from "@/firebase";
 import { doc, updateDoc } from "firebase/firestore";
 import { Textarea } from "@/components/ui/textarea";
 import { Skeleton } from "@/components/ui/skeleton";
+import { cn } from "@/lib/utils";
+
 
 interface Organization {
   companyName?: string;
@@ -26,6 +30,7 @@ interface Organization {
   phoneNumber?: string;
   address?: string;
   thankYouMessage?: string;
+  logoUrl?: string;
 }
 
 export default function SettingsPage() {
@@ -35,6 +40,7 @@ export default function SettingsPage() {
   
   const [organization, setOrganization] = useState<Partial<Organization>>({});
   const [savingSection, setSavingSection] = useState<string | null>(null);
+  const [logoPreview, setLogoPreview] = useState<string | null>(null);
 
   const orgRef = useMemoFirebase(() => (user ? doc(firestore, `organizations/${user.uid}`) : null), [firestore, user]);
   const { data: orgData, isLoading } = useDoc<Organization>(orgRef);
@@ -50,12 +56,44 @@ export default function SettingsPage() {
     setOrganization(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSave = async (section: string, payload: Partial<Organization>) => {
+  const handleLogoChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setLogoPreview(reader.result as string);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  const handleSave = async (section: 'profile' | 'branding') => {
     if (!user || !orgRef) return;
     setSavingSection(section);
+
+    let payload: Partial<Organization> = {};
+    if (section === 'profile') {
+      payload = {
+        companyName: organization.companyName, 
+        email: organization.email,
+        phoneNumber: organization.phoneNumber,
+        address: organization.address
+      };
+    } else if (section === 'branding') {
+      payload = {
+        thankYouMessage: organization.thankYouMessage,
+      };
+      if (logoPreview) {
+        payload.logoUrl = logoPreview;
+      }
+    }
+    
     try {
       await updateDoc(orgRef, payload);
       toast({ title: 'Settings Saved', description: `Your ${section} settings have been updated.` });
+      if (section === 'branding' && logoPreview) {
+        setLogoPreview(null);
+      }
     } catch (error: any) {
       toast({ title: 'Error', description: error.message || `Failed to save ${section} settings`, variant: 'destructive' });
     } finally {
@@ -150,14 +188,7 @@ export default function SettingsPage() {
                 </div>
               </CardContent>
               <CardFooter>
-                <Button onClick={() => handleSave('profile', { 
-                    companyName: organization.companyName, 
-                    email: organization.email,
-                    phoneNumber: organization.phoneNumber,
-                    address: organization.address
-                  })} 
-                  disabled={savingSection === 'profile'}
-                >
+                <Button onClick={() => handleSave('profile')} disabled={savingSection === 'profile'}>
                   {savingSection === 'profile' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   {savingSection === 'profile' ? 'Saving...' : 'Save Profile'}
                 </Button>
@@ -172,6 +203,29 @@ export default function SettingsPage() {
                 <CardDescription>Customize the look and feel of your receipts.</CardDescription>
               </CardHeader>
               <CardContent className="space-y-6">
+                <div className="space-y-4">
+                  <Label>Company Logo</Label>
+                  <div className="flex items-center gap-6">
+                    <Avatar className="h-24 w-24 rounded-lg border-2 border-dashed">
+                      <AvatarImage 
+                        src={logoPreview || organization.logoUrl || '/logo.png'} 
+                        alt="Company Logo" 
+                        className="object-contain rounded-md" 
+                      />
+                      <AvatarFallback className="rounded-lg bg-secondary">
+                        <Building2 className="h-10 w-10 text-muted-foreground" />
+                      </AvatarFallback>
+                    </Avatar>
+                    <div className="flex-1">
+                        <Label htmlFor="logo-upload" className={cn(buttonVariants({ variant: "outline" }), "cursor-pointer")}>
+                            <Upload className="mr-2 h-4 w-4" />
+                            Upload Image
+                        </Label>
+                        <Input id="logo-upload" type="file" className="hidden" accept="image/png, image/jpeg, image/gif" onChange={handleLogoChange} />
+                        <p className="text-xs text-muted-foreground mt-2">Recommended: Square image, PNG or JPG, under 500kb.</p>
+                    </div>
+                  </div>
+                </div>
                 <div className="space-y-2">
                   <Label htmlFor="thankYouMessage">Default "Thank You" Message</Label>
                   <Textarea 
@@ -182,22 +236,9 @@ export default function SettingsPage() {
                     placeholder="e.g., Thank you for your business!"
                   />
                 </div>
-                 <div className="space-y-2">
-                  <Label>Brand Colors (coming soon)</Label>
-                  <div className="flex items-center gap-4">
-                    <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-gray-200 border"></div>
-                      <span>Primary</span>
-                    </div>
-                     <div className="flex items-center gap-2">
-                      <div className="h-8 w-8 rounded-full bg-gray-200 border"></div>
-                      <span>Secondary</span>
-                    </div>
-                  </div>
-                </div>
               </CardContent>
               <CardFooter>
-                <Button onClick={() => handleSave('branding', { thankYouMessage: organization.thankYouMessage })} disabled={savingSection === 'branding'}>
+                <Button onClick={() => handleSave('branding')} disabled={savingSection === 'branding'}>
                   {savingSection === 'branding' ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   {savingSection === 'branding' ? 'Saving...' : 'Save Customizations'}
                 </Button>
