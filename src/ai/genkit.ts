@@ -1,8 +1,8 @@
 
-import { genkit, ai } from '@genkit-ai/next';
+import { genkit } from '@genkit-ai/next';
 import { googleAI } from '@genkit-ai/google-genai';
 
-genkit({
+const ai = genkit({
   plugins: [
     googleAI(),
   ],
@@ -11,5 +11,3 @@ genkit({
 });
 
 export { ai };
-
-    

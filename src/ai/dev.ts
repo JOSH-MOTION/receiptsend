@@ -2,18 +2,9 @@
 /**
  * @fileoverview This file is the entrypoint for Genkit's developer UI.
  */
-import { genkit } from '@genkit-ai/next';
-import { googleAI } from '@genkit-ai/google-genai';
 
-// Load the flows from their files
+// Load the flows from their files.
+// This is enough for the Genkit CLI to discover the flows, which use the
+// centralized configuration from @/ai/genkit.ts.
 import './flows/send-receipt-flow';
 import './flows/send-sms-flow';
-
-// Configure Genkit
-genkit({
-  plugins: [googleAI()],
-  logLevel: 'debug',
-  enableTracingAndMetrics: true,
-});
-
-    
