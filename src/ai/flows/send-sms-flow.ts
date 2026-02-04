@@ -1,38 +1,59 @@
-
-'use server';
-/**
- * @fileOverview A flow for sending a SMS message.
- */
-
 import { ai } from '@/ai/genkit';
 import { z } from 'zod';
-import { SendSmsInputSchema, type SendSmsInput } from '@/actions/sms-types';
+import { SendSmsInputSchema } from '@/actions/sms-types';
 
-export async function sendSms(input: SendSmsInput): Promise<{ success: boolean; message: string }> {
-  return sendSmsFlow(input);
-}
-
-const sendSmsFlow = ai.defineFlow(
+export const sendSmsFlow = ai.defineFlow(
   {
     name: 'sendSmsFlow',
     inputSchema: SendSmsInputSchema,
-    outputSchema: z.object({ success: z.boolean(), message: z.string() }),
+    outputSchema: z.object({
+      success: z.boolean(),
+      message: z.string(),
+    }),
   },
   async (input) => {
-    console.log('--- SIMULATING SENDING SMS ---');
-    console.log('To:', input.to);
-    console.log('From:', input.organizationName || 'SENDORA');
-    console.log('Message:', input.message);
-    
-    // In a real application, you would integrate with an SMS gateway like Twilio.
-    // This requires a secure backend (e.g., Firebase Function) to handle API keys.
-    
-    // For now, we just simulate a successful send.
-    await new Promise(resolve => setTimeout(resolve, 1000)); // Simulate network delay
+    try {
+      const apiKey = process.env.SMS_API_KEY;
+      const sender = process.env.SMS_API_SENDER || 'Quick SMS';
 
-    const message = `SMS sent to ${input.to}.`;
-    console.log(message);
-    
-    return { success: true, message };
+      if (!apiKey) {
+        console.error('SMS_API_KEY not configured');
+        return { success: false, message: 'SMS service not configured.' };
+      }
+
+      const url = new URL('https://linksengineering.net/apisms/api/qapi');
+      url.searchParams.set('public_key', apiKey);
+      url.searchParams.set('sender', sender);
+      url.searchParams.set('message', input.message);
+      url.searchParams.set('numbers', input.to);
+
+      const response = await fetch(url.toString(), { method: 'GET' });
+      const text = await response.text();
+
+      let result;
+      try {
+        result = JSON.parse(text);
+      } catch {
+        result = { raw: text };
+      }
+
+      const isSuccess =
+        response.ok ||
+        text.toLowerCase().includes('success') ||
+        text.toLowerCase().includes('sent') ||
+        text.toLowerCase().includes('ok') ||
+        result?.status?.toLowerCase() === 'success';
+
+      if (isSuccess) {
+        return { success: true, message: `SMS sent to ${input.to}` };
+      } else {
+        return {
+          success: false,
+          message: result?.message || text || 'Failed to send SMS.',
+        };
+      }
+    } catch (error: any) {
+      return { success: false, message: `Network error: ${error.message}` };
+    }
   }
 );
