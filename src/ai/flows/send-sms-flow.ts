@@ -18,21 +18,56 @@ export const sendSmsFlow = ai.defineFlow(
     }),
   },
   async (input) => {
-    // This is a simulated flow.
-    // In a real application, you would integrate with an SMS gateway provider.
-    console.log('--- SIMULATED SMS SEND ---');
-    console.log('To:', input.to);
-    console.log('From:', input.organizationName || 'SENDORA');
-    console.log('Message:', input.message);
-    console.log('--- END SIMULATED SMS ---');
-    
-    // Simulate a network delay
-    await new Promise(resolve => setTimeout(resolve, 500));
+    try {
+      const publicKey = process.env.QUICKSMS_PUBLIC_KEY;
+      // Prioritize organization name from input, fallback to env variable
+      const senderId = input.organizationName || process.env.QUICKSMS_SENDER_ID || 'Quick SMS';
+      
+      if (!publicKey) {
+        console.error('QUICKSMS_PUBLIC_KEY not configured');
+        return { success: false, message: 'SMS service not configured' };
+      }
 
-    // Always return success for the simulation
-    return { 
-      success: true, 
-      message: `Simulated SMS sent to ${input.to}`
-    };
+      console.log('📱 Sending SMS via Quick SMS...');
+      console.log('To:', input.to);
+      console.log('From:', senderId);
+      console.log('Message:', input.message);
+
+      // Build the API URL
+      const apiUrl = new URL('https://linksengineering.net/apisms/api/qapi');
+      apiUrl.searchParams.append('public_key', publicKey);
+      apiUrl.searchParams.append('sender', senderId);
+      apiUrl.searchParams.append('message', input.message);
+      apiUrl.searchParams.append('numbers', input.to);
+
+      // Send via Quick SMS API
+      const response = await fetch(apiUrl.toString(), {
+        method: 'GET',
+      });
+
+      const result = await response.text();
+
+      // Quick SMS returns different response formats
+      // Success typically contains "success" or specific codes
+      if (response.ok && (result.toLowerCase().includes('success') || result.includes('200'))) {
+        console.log('✅ SMS sent successfully:', result);
+        return { 
+          success: true, 
+          message: `SMS sent to ${input.to}` 
+        };
+      } else {
+        console.error('❌ Quick SMS API error:', result);
+        return { 
+          success: false, 
+          message: `Failed to send SMS: ${result}` 
+        };
+      }
+    } catch (error: any) {
+      console.error('❌ Error sending SMS:', error);
+      return { 
+        success: false, 
+        message: error.message || 'Failed to send SMS' 
+      };
+    }
   }
 );
