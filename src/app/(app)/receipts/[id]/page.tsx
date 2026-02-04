@@ -20,6 +20,8 @@ import { useUser, useFirebase, useDoc, useMemoFirebase } from '@/firebase';
 import { doc } from 'firebase/firestore';
 import { sendReceiptAction } from '@/actions/send-receipt-action';
 import type { SendReceiptInput } from '@/actions/receipt-types';
+import { sendSmsAction } from '@/actions/send-sms-action';
+import type { SendSmsInput } from '@/actions/sms-types';
 
 interface ReceiptItem {
   name: string;
@@ -138,15 +140,50 @@ export default function ReceiptDetailsPage() {
     }
   };
   
-  const handleResendSMS = () => {
-    setIsSendingSMS(true);
-    setTimeout(() => {
+  const handleResendSMS = async () => {
+    if (!receipt || !receipt.customerPhoneNumber || !orgData) {
       toast({
-        title: 'Feature In Development',
-        description: 'SMS functionality requires backend setup (Firebase Functions) to be fully functional.',
+        title: 'Cannot send SMS',
+        description: 'The customer does not have a phone number saved for this receipt.',
+        variant: 'destructive',
       });
+      return;
+    }
+    
+    setIsSendingSMS(true);
+    try {
+      const smsMessage = `Your receipt #${receipt.receiptNumber} from ${orgData.companyName || 'SENDORA'} for GH₵${receipt.totalAmount.toFixed(2)} is ready. Thank you!`;
+      
+      const smsInput: SendSmsInput = {
+        to: receipt.customerPhoneNumber,
+        message: smsMessage,
+        organizationName: orgData.companyName,
+      };
+
+      const result = await sendSmsAction(smsInput);
+
+      if (result.success) {
+        toast({
+          title: 'SMS Sent!',
+          description: result.message,
+        });
+      } else {
+        toast({
+          title: 'SMS Failed',
+          description: result.message,
+          variant: 'destructive',
+        });
+      }
+    } catch (error: any) {
+      console.error('Error resending SMS:', error);
+      toast({
+        title: 'Error',
+        description: 'An unexpected error occurred while resending the SMS.',
+        variant: 'destructive',
+      });
+    } finally {
       setIsSendingSMS(false);
-    }, 500);
+    }
   };
   
   const formatTimestamp = (ts: any, timeFormat: string = 'MMMM dd, yyyy') => {
