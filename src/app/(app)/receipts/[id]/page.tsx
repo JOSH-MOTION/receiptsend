@@ -311,7 +311,7 @@ export default function ReceiptDetailsPage() {
                 </div>
             </div>
             <div className="text-left sm:text-right">
-                <h2 className="text-5xl font-extrabold text-foreground tracking-wider">INVOICE</h2>
+                <h2 className="text-5xl font-extrabold text-foreground tracking-wider">RECIEPT</h2>
                 <p className="text-muted-foreground mt-2">
                     Receipt#: {receipt.receiptNumber}
                 </p>
