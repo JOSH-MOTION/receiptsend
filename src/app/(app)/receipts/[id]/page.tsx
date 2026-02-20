@@ -313,7 +313,7 @@ export default function ReceiptDetailsPage() {
             <div className="text-left sm:text-right">
                 <h2 className="text-5xl font-extrabold text-foreground tracking-wider">INVOICE</h2>
                 <p className="text-muted-foreground mt-2">
-                    Invoice #: {receipt.receiptNumber}
+                    Receipt#: {receipt.receiptNumber}
                 </p>
             </div>
           </div>
@@ -332,7 +332,7 @@ export default function ReceiptDetailsPage() {
               </div>
               <div className="text-left md:text-right">
                   <div className="mb-2">
-                      <span className="font-semibold text-muted-foreground">Invoice Date: </span>
+                      <span className="font-semibold text-muted-foreground">ReceiptDate: </span>
                       <span className="text-foreground">{formatTimestamp(receipt.createdAt)}</span>
                   </div>
                   <div>
