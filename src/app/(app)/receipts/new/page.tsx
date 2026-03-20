@@ -278,26 +278,26 @@ export default function NewReceiptPage() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8">
+    <div className="min-h-screen bg-white p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
         <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
+          <Button variant="ghost" size="icon" asChild className="text-gray-600 hover:text-green-600">
             <Link href="/receipts">
               <ArrowLeft className="h-5 w-5" />
             </Link>
           </Button>
           <div>
-            <h1 className="text-4xl font-bold text-primary">Create Receipt</h1>
-            <p className="text-muted-foreground mt-2">Generate and send a new digital receipt</p>
+            <h1 className="text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">Create Receipt</h1>
+            <p className="text-gray-600 mt-2">Generate and send a new digital receipt</p>
           </div>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-6">
           {/* Customer Information */}
-          <Card>
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader>
-              <CardTitle>Customer Information</CardTitle>
-              <CardDescription>Who is this receipt for?</CardDescription>
+              <CardTitle className="text-gray-900">Customer Information</CardTitle>
+              <CardDescription className="text-gray-600">Who is this receipt for?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               <div className="space-y-2">
@@ -316,14 +316,14 @@ export default function NewReceiptPage() {
           </Card>
           
           {/* Items */}
-          <Card>
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader>
-              <CardTitle>Items</CardTitle>
-              <CardDescription>What was purchased?</CardDescription>
+              <CardTitle className="text-gray-900">Items</CardTitle>
+              <CardDescription className="text-gray-600">What was purchased?</CardDescription>
             </CardHeader>
             <CardContent className="space-y-4">
               {items.map((item, index) => (
-                <div key={index} className="flex gap-4 items-end p-4 rounded-lg border bg-secondary/30">
+                <div key={index} className="flex gap-4 items-end p-4 rounded-lg border border-gray-200 bg-white">
                   <div className="flex-1 space-y-2">
                     <Label htmlFor={`item-name-${index}`}>Item Name</Label>
                     <Input id={`item-name-${index}`} placeholder="Product or service" value={item.name} onChange={(e) => updateItem(index, "name", e.target.value)} />
@@ -351,10 +351,10 @@ export default function NewReceiptPage() {
           </Card>
           
           {/* Message & Delivery */}
-          <Card>
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader>
-              <CardTitle>Message & Delivery</CardTitle>
-              <CardDescription>Customize the thank you message and choose delivery channels.</CardDescription>
+              <CardTitle className="text-gray-900">Message & Delivery</CardTitle>
+              <CardDescription className="text-gray-600">Customize the thank you message and choose delivery channels.</CardDescription>
             </CardHeader>
             <CardContent className="space-y-6">
               <div className="space-y-2">
@@ -377,7 +377,7 @@ export default function NewReceiptPage() {
                   <Textarea id="thank-you-message" placeholder="e.g., Thank you for your business!" value={thankYouMessage} onChange={(e) => setThankYouMessage(e.target.value)} className="flex-1" rows={3} />
                   <Dialog open={isSaveTemplateOpen} onOpenChange={setIsSaveTemplateOpen}>
                     <DialogTrigger asChild>
-                      <Button type="button" variant="outline" size="icon" title="Save as template">
+                      <Button type="button" variant="outline" size="icon" title="Save as template" className="border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700">
                         <Save className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
@@ -392,7 +392,7 @@ export default function NewReceiptPage() {
                       </div>
                       <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsSaveTemplateOpen(false)}>Cancel</Button>
-                        <Button onClick={handleSaveTemplate} disabled={isSavingTemplate}>
+                        <Button onClick={handleSaveTemplate} disabled={isSavingTemplate} className="bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white">
                           {isSavingTemplate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                           Save Template
                         </Button>
@@ -439,34 +439,34 @@ export default function NewReceiptPage() {
                   <span>GH₵{subtotal.toFixed(2)}</span>
                 </div>
                 {discount > 0 && (
-                  <div className="flex justify-between text-sm text-destructive">
+                  <div className="flex justify-between text-sm text-red-600">
                     <span>Discount ({discount}%)</span>
                     <span>-GH₵{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Subtotal after discount</span>
-                  <span>GH₵{subtotalAfterDiscount.toFixed(2)}</span>
+                  <span className="text-gray-600">Subtotal after discount</span>
+                  <span className="text-gray-900">GH₵{subtotalAfterDiscount.toFixed(2)}</span>
                 </div>
                 {tax > 0 && (
                   <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax ({tax}%)</span>
-                    <span>+GH₵{taxAmount.toFixed(2)}</span>
+                    <span className="text-gray-600">Tax ({tax}%)</span>
+                    <span className="text-gray-900">+GH₵{taxAmount.toFixed(2)}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-xl font-bold pt-2 border-t">
-                  <span>Total</span>
-                  <span className="text-primary">GH₵{total.toFixed(2)}</span>
+                <div className="flex justify-between text-xl font-bold pt-2 border-t border-gray-200">
+                  <span className="text-gray-900">Total</span>
+                  <span className="text-green-600">GH₵{total.toFixed(2)}</span>
                 </div>
               </div>
             </CardContent>
           </Card>
 
           <div className="flex gap-4">
-            <Button type="button" variant="outline" asChild className="flex-1">
+            <Button type="button" variant="outline" asChild className="flex-1 border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700">
               <Link href="/receipts">Cancel</Link>
             </Button>
-            <Button type="submit" disabled={isSubmitting} className="flex-1">
+            <Button type="submit" disabled={isSubmitting} className="flex-1 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white">
               {isSubmitting ? (
                 <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
               ) : (

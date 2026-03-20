@@ -162,19 +162,19 @@ export default function ReceiptsPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary/20 via-background to-background p-4 md:p-6 lg:p-8">
+    <div className="min-h-screen bg-white p-4 md:p-6 lg:p-8">
       <div className="max-w-7xl mx-auto space-y-6 md:space-y-8">
         {/* Header - Responsive */}
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               Receipts
             </h1>
-            <p className="text-muted-foreground mt-2 text-sm sm:text-base">
+            <p className="text-gray-600 mt-2 text-sm sm:text-base">
               Manage all your digital receipts in one place
             </p>
           </div>
-          <Button asChild className="w-full sm:w-auto bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90 shadow-lg">
+          <Button asChild className="w-full sm:w-auto bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 shadow-lg text-white">
             <Link href="/receipts/new" className="flex items-center gap-2">
               <Plus className="h-5 w-5" />
               New Receipt
@@ -184,52 +184,52 @@ export default function ReceiptsPage() {
 
         {/* Stats Cards - Responsive Grid */}
         <div className="grid gap-4 sm:gap-6 grid-cols-1 md:grid-cols-3">
-          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Receipts</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Total Receipts</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-primary">{filteredReceipts.length}</div>
-              <p className="text-xs text-muted-foreground mt-2">
+              <div className="text-2xl sm:text-3xl font-bold text-green-600">{filteredReceipts.length}</div>
+              <p className="text-xs text-gray-600 mt-2">
                 {receipts && receipts.length > filteredReceipts.length && `${receipts.length - filteredReceipts.length} filtered out`}
               </p>
             </CardContent>
           </Card>
 
-          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Total Revenue</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Total Revenue</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-primary">GH₵{totalRevenue.toFixed(2)}</div>
-              <p className="text-xs text-muted-foreground mt-2">From selected receipts</p>
+              <div className="text-2xl sm:text-3xl font-bold text-green-600">GH₵{totalRevenue.toFixed(2)}</div>
+              <p className="text-xs text-gray-600 mt-2">From selected receipts</p>
             </CardContent>
           </Card>
 
-          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
+          <Card className="border border-gray-200 bg-white shadow-sm">
             <CardHeader className="pb-3">
-              <CardTitle className="text-sm font-medium text-muted-foreground">Avg. Receipt Value</CardTitle>
+              <CardTitle className="text-sm font-medium text-gray-600">Avg. Receipt Value</CardTitle>
             </CardHeader>
             <CardContent>
-              <div className="text-2xl sm:text-3xl font-bold text-primary">
+              <div className="text-2xl sm:text-3xl font-bold text-green-600">
               GH₵{filteredReceipts.length > 0 ? (totalRevenue / filteredReceipts.length).toFixed(2) : "0.00"}
               </div>
-              <p className="text-xs text-muted-foreground mt-2">Per transaction</p>
+              <p className="text-xs text-gray-600 mt-2">Per transaction</p>
             </CardContent>
           </Card>
         </div>
 
         {/* Filters */}
-        <Card className="backdrop-blur-xl bg-card/60 border-border shadow-2xl">
+        <Card className="border border-gray-200 bg-white shadow-sm">
           <CardHeader>
-            <CardTitle className="text-xl sm:text-2xl">All Receipts</CardTitle>
-            <CardDescription className="text-sm">Search and filter your receipt history</CardDescription>
+            <CardTitle className="text-xl sm:text-2xl text-gray-900">All Receipts</CardTitle>
+            <CardDescription className="text-sm text-gray-600">Search and filter your receipt history</CardDescription>
           </CardHeader>
           <CardContent>
             {/* Search and Filter - Stack on Mobile */}
             <div className="flex flex-col sm:flex-row gap-4 mb-6">
               <div className="relative flex-1">
-                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+                <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
                 <Input
                   placeholder="Search by customer, email, or receipt number..."
                   value={searchQuery}
@@ -251,78 +251,78 @@ export default function ReceiptsPage() {
             </div>
 
             {/* Receipts Table - Responsive with Horizontal Scroll */}
-            <div className="rounded-lg border overflow-hidden">
+            <div className="rounded-lg border border-gray-200 overflow-hidden">
               <div className="overflow-x-auto">
                 <div className="min-w-[600px]">
                   <Table>
                     <TableHeader>
-                      <TableRow className="bg-secondary/50 hover:bg-secondary/50">
-                        <TableHead className="font-semibold">Receipt #</TableHead>
-                        <TableHead className="font-semibold">Customer</TableHead>
-                        <TableHead className="font-semibold hidden md:table-cell">Channel</TableHead>
-                        <TableHead className="font-semibold hidden lg:table-cell">Date</TableHead>
-                        <TableHead className="font-semibold text-right">Amount</TableHead>
-                        <TableHead className="font-semibold text-right">Actions</TableHead>
+                      <TableRow className="bg-gray-50 hover:bg-gray-50">
+                        <TableHead className="font-semibold text-gray-700">Receipt #</TableHead>
+                        <TableHead className="font-semibold text-gray-700">Customer</TableHead>
+                        <TableHead className="font-semibold text-gray-700 hidden md:table-cell">Channel</TableHead>
+                        <TableHead className="font-semibold text-gray-700 hidden lg:table-cell">Date</TableHead>
+                        <TableHead className="font-semibold text-gray-700 text-right">Amount</TableHead>
+                        <TableHead className="font-semibold text-gray-700 text-right">Actions</TableHead>
                       </TableRow>
                     </TableHeader>
                     <TableBody>
                       {isLoading ? (
                         [...Array(8)].map((_, i) => (
                           <TableRow key={i} className="animate-pulse">
-                            <TableCell><div className="h-4 bg-muted rounded w-24" /></TableCell>
-                            <TableCell><div className="h-4 bg-muted rounded w-32" /></TableCell>
-                            <TableCell className="hidden md:table-cell"><div className="h-4 bg-muted rounded w-20" /></TableCell>
-                            <TableCell className="hidden lg:table-cell"><div className="h-4 bg-muted rounded w-24" /></TableCell>
-                            <TableCell className="text-right"><div className="h-4 bg-muted rounded w-16 ml-auto" /></TableCell>
-                            <TableCell className="text-right"><div className="h-4 bg-muted rounded w-8 ml-auto" /></TableCell>
+                            <TableCell><div className="h-4 bg-gray-200 rounded w-24" /></TableCell>
+                            <TableCell><div className="h-4 bg-gray-200 rounded w-32" /></TableCell>
+                            <TableCell className="hidden md:table-cell"><div className="h-4 bg-gray-200 rounded w-20" /></TableCell>
+                            <TableCell className="hidden lg:table-cell"><div className="h-4 bg-gray-200 rounded w-24" /></TableCell>
+                            <TableCell className="text-right"><div className="h-4 bg-gray-200 rounded w-16 ml-auto" /></TableCell>
+                            <TableCell className="text-right"><div className="h-4 bg-gray-200 rounded w-8 ml-auto" /></TableCell>
                           </TableRow>
                         ))
                       ) : filteredReceipts.length > 0 ? (
                         filteredReceipts.map((receipt) => (
                           <TableRow
                             key={receipt.id}
-                            className="hover:bg-secondary/30 transition-colors"
+                            className="hover:bg-gray-50 transition-colors"
                           >
-                            <TableCell className="font-mono font-medium text-primary text-sm">
+                            <TableCell className="font-mono font-medium text-green-600 text-sm">
                               {receipt.receiptNumber}
                             </TableCell>
                             <TableCell>
-                              <div className="font-medium text-sm">{receipt.customerName}</div>
-                              <div className="text-xs text-muted-foreground">{receipt.customerEmail}</div>
+                              <div className="font-medium text-sm text-gray-900">{receipt.customerName}</div>
+                              <div className="text-xs text-gray-600">{receipt.customerEmail}</div>
                             </TableCell>
                             <TableCell className="hidden md:table-cell">
                               <div className="flex gap-2 flex-wrap">
                                 {receipt.deliveryChannels?.includes("email") && (
-                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 dark:bg-blue-900 dark:text-blue-300 text-xs">
+                                  <Badge variant="secondary" className="bg-blue-100 text-blue-700 text-xs">
                                     <Mail className="h-3 w-3 mr-1" />
                                     Email
                                   </Badge>
                                 )}
                                 {receipt.deliveryChannels?.includes("sms") && (
-                                  <Badge variant="secondary" className="bg-green-100 text-green-700 dark:bg-green-900 dark:text-green-300 text-xs">
+                                  <Badge variant="secondary" className="bg-green-100 text-green-700 text-xs">
                                     <Smartphone className="h-3 w-3 mr-1" />
                                     SMS
                                   </Badge>
                                 )}
                                 {(!receipt.deliveryChannels || receipt.deliveryChannels.length === 0) && (
-                                  <Badge variant="outline">Not Sent</Badge>
+                                  <Badge variant="outline" className="border-gray-300 text-gray-600">Not Sent</Badge>
                                 )}
                               </div>
                             </TableCell>
-                            <TableCell className="text-muted-foreground text-sm hidden lg:table-cell">
+                            <TableCell className="text-gray-600 text-sm hidden lg:table-cell">
                               {isClient ? formatTimestamp(receipt.createdAt) : "..."}
                             </TableCell>
-                            <TableCell className="text-right font-semibold text-sm">
+                            <TableCell className="text-right font-semibold text-sm text-gray-900">
                             GH₵{receipt.totalAmount.toFixed(2)}
                             </TableCell>
                             <TableCell className="text-right">
                               <DropdownMenu>
                                 <DropdownMenuTrigger asChild>
-                                  <Button variant="ghost" size="icon" className="h-8 w-8">
+                                  <Button variant="ghost" size="icon" className="h-8 w-8 text-gray-600 hover:text-green-600">
                                     <MoreVertical className="h-4 w-4" />
                                   </Button>
                                 </DropdownMenuTrigger>
-                                <DropdownMenuContent align="end">
+                                <DropdownMenuContent align="end" className="bg-white border-gray-200">
                                   <DropdownMenuLabel>Actions</DropdownMenuLabel>
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem asChild>
@@ -334,7 +334,7 @@ export default function ReceiptsPage() {
                                   <DropdownMenuSeparator />
                                   <DropdownMenuItem
                                     onClick={() => handleDeleteClick(receipt)}
-                                    className="text-destructive focus:text-destructive focus:bg-destructive/10"
+                                    className="text-red-600 focus:text-red-600 focus:bg-red-50"
                                   >
                                     <Trash2 className="h-4 w-4 mr-2" />
                                     Delete
@@ -348,19 +348,19 @@ export default function ReceiptsPage() {
                         <TableRow>
                           <TableCell colSpan={6} className="text-center py-12">
                             <div className="flex flex-col items-center gap-3">
-                              <div className="p-4 rounded-full bg-secondary">
-                                <FileText className="h-8 w-8 text-primary" />
+                              <div className="p-4 rounded-full bg-gray-100">
+                                <FileText className="h-8 w-8 text-gray-400" />
                               </div>
                               <div>
-                                <p className="text-lg font-semibold">No receipts found</p>
-                                <p className="text-sm text-muted-foreground mt-1">
+                                <p className="text-lg font-semibold text-gray-900">No receipts found</p>
+                                <p className="text-sm text-gray-600 mt-1">
                                   {searchQuery || filterChannel !== "all"
                                     ? "Try adjusting your filters"
                                     : "Create your first receipt to get started"}
                                 </p>
                               </div>
                               {!searchQuery && filterChannel === "all" && (
-                                <Button asChild className="mt-4 bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90">
+                                <Button asChild className="mt-4 bg-gradient-to-r from-green-600 to-emerald-600 hover:from-green-700 hover:to-emerald-700 text-white">
                                   <Link href="/receipts/new">
                                     <Plus className="h-4 w-4 mr-2" />
                                     Create Receipt
@@ -382,22 +382,22 @@ export default function ReceiptsPage() {
 
       {/* Delete Confirmation Dialog */}
       <AlertDialog open={deleteDialogOpen} onOpenChange={setDeleteDialogOpen}>
-        <AlertDialogContent>
+        <AlertDialogContent className="bg-white border-gray-200">
           <AlertDialogHeader>
-            <AlertDialogTitle>Delete Receipt?</AlertDialogTitle>
-            <AlertDialogDescription>
-              Are you sure you want to delete receipt <span className="font-semibold">#{receiptToDelete?.receiptNumber}</span> for{" "}
-              <span className="font-semibold">{receiptToDelete?.customerName}</span>?
+            <AlertDialogTitle className="text-gray-900">Delete Receipt?</AlertDialogTitle>
+            <AlertDialogDescription className="text-gray-600">
+              Are you sure you want to delete receipt <span className="font-semibold text-gray-900">#{receiptToDelete?.receiptNumber}</span> for{" "}
+              <span className="font-semibold text-gray-900">{receiptToDelete?.customerName}</span>?
               <br /><br />
               This action cannot be undone and will permanently remove the receipt from your records.
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={isDeleting}>Cancel</AlertDialogCancel>
+            <AlertDialogCancel disabled={isDeleting} className="border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700">Cancel</AlertDialogCancel>
             <AlertDialogAction
               onClick={handleDeleteConfirm}
               disabled={isDeleting}
-              className="bg-destructive hover:bg-destructive/90"
+              className="bg-red-600 hover:bg-red-700 text-white"
             >
               {isDeleting ? "Deleting..." : "Delete Receipt"}
             </AlertDialogAction>

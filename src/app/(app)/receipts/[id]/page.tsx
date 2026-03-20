@@ -176,131 +176,163 @@ export default function ReceiptDetailsPage() {
   const taxAmount = (subtotalAfterDiscount * (receipt.tax || 0)) / 100;
 
   return (
-    <div className="container mx-auto py-8 max-w-4xl print-container">
+    <div className="container mx-auto py-8 max-w-4xl print-container bg-white min-h-screen">
       {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 print:hidden gap-4">
-        <Button variant="ghost" asChild>
+        <Button variant="ghost" asChild className="text-gray-600 hover:text-green-600">
           <Link href="/receipts"><ArrowLeft className="mr-2 h-4 w-4" />Back to Receipts</Link>
         </Button>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={isSendingEmail || !receipt.deliveryChannels?.includes("email")} className="flex-1 sm:flex-initial">
+          <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={isSendingEmail || !receipt.deliveryChannels?.includes("email")} className="flex-1 sm:flex-initial border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700">
             {isSendingEmail ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</> : <><Mail className="mr-2 h-4 w-4" />Resend Email</>}
           </Button>
           {receipt.customerPhoneNumber && (
-            <Button variant="outline" size="sm" onClick={handleResendSMS} disabled={isSendingSMS || !receipt.deliveryChannels?.includes("sms")} className="flex-1 sm:flex-initial">
+            <Button variant="outline" size="sm" onClick={handleResendSMS} disabled={isSendingSMS || !receipt.deliveryChannels?.includes("sms")} className="flex-1 sm:flex-initial border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700">
               {isSendingSMS ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</> : <><MessageSquare className="mr-2 h-4 w-4" />Resend SMS</>}
             </Button>
           )}
-          <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-initial">
+          <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-initial border-gray-300 text-gray-700 hover:bg-green-50 hover:border-green-300 hover:text-green-700">
             <Printer className="mr-2 h-4 w-4" />Print
           </Button>
         </div>
       </div>
 
       {isClient && (
-        <div className="text-center text-sm text-muted-foreground mb-4 print:hidden">
+        <div className="text-center text-sm text-gray-600 mb-4 print:hidden">
           {receipt.deliveryChannels?.includes("email") && `Sent via Email on ${formatTimestamp(receipt.createdAt, "MMMM dd, yyyy, hh:mm a")}`}
           {receipt.deliveryChannels?.includes("sms") && ` · Sent via SMS on ${formatTimestamp(receipt.createdAt, "MMMM dd, yyyy, hh:mm a")}`}
         </div>
       )}
 
       {/* Receipt Card */}
-      <Card className="p-6 sm:p-8 md:p-12 shadow-2xl bg-card border-border">
+      <Card className="p-6 sm:p-8 md:p-12 shadow-2xl bg-white border-gray-200">
         <div className="flex flex-col sm:flex-row justify-between items-start pb-8 mb-8">
           <div className='flex items-start gap-4 mb-6 sm:mb-0'>
             <div className="relative w-16 h-16 flex-shrink-0">
               <Image src={orgData?.logoUrl || '/logo.png'} alt={orgData?.companyName || 'Company Logo'} fill className="object-contain" />
             </div>
             <div>
-              <h1 className="text-2xl font-bold text-primary">{orgData?.companyName || 'Business Name'}</h1>
-              <p className="text-muted-foreground text-sm max-w-xs mt-1">{orgData?.address}</p>
+              <h1 className="text-2xl font-bold text-gray-900">{orgData?.companyName || 'Business Name'}</h1>
+              <p className="text-gray-600 text-sm max-w-xs mt-1">{orgData?.address}</p>
             </div>
           </div>
           <div className="text-left sm:text-right">
-            <h2 className="text-5xl font-extrabold text-foreground tracking-wider">RECEIPT</h2>
-            <p className="text-muted-foreground mt-2">Receipt#: {receipt.receiptNumber}</p>
+            <h2 className="text-5xl font-extrabold text-gray-900 tracking-wider">RECEIPT</h2>
+            <p className="text-gray-600 mt-2">
+              Receipt#: {receipt.receiptNumber}
+            </p>
           </div>
         </div>
 
-        <Separator className="my-8" />
+        <Separator className="my-8 bg-gray-200" />
 
+        {/* Customer Info & Dates */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
           <div>
-            <h3 className="font-semibold mb-2 text-muted-foreground">BILLED TO</h3>
-            <p className="font-medium text-foreground">{receipt.customerName}</p>
-            <p className="text-muted-foreground text-sm">{receipt.customerEmail}</p>
-            {receipt.customerPhoneNumber && <p className="text-muted-foreground text-sm">{receipt.customerPhoneNumber}</p>}
+            <h3 className="font-semibold mb-2 text-gray-600">BILLED TO</h3>
+            <p className="font-medium text-gray-900">{receipt.customerName}</p>
+            <p className="text-gray-600 text-sm">{receipt.customerEmail}</p>
+            {receipt.customerPhoneNumber && (
+              <p className="text-gray-600 text-sm">{receipt.customerPhoneNumber}</p>
+            )}
           </div>
           <div className="text-left md:text-right">
             <div className="mb-2">
-              <span className="font-semibold text-muted-foreground">Receipt Date: </span>
-              <span className="text-foreground">{formatTimestamp(receipt.createdAt)}</span>
+              <span className="font-semibold text-gray-600">ReceiptDate: </span>
+              <span className="text-gray-900">{formatTimestamp(receipt.createdAt)}</span>
+            </div>
+            <div>
+              <span className="font-semibold text-gray-600">Due Date: </span>
+              <span className="text-gray-900">{formatTimestamp(receipt.createdAt)}</span>
             </div>
           </div>
         </div>
 
+        {/* Items Table */}
         <div className="mb-8 overflow-x-auto">
           <table className="w-full">
-            <thead className="border-b-2 border-t-2 border-border">
+            <thead className="border-b-2 border-t-2 border-gray-200">
               <tr>
-                <th className="text-left p-3 font-bold text-primary uppercase tracking-wider text-sm">Description</th>
-                <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">Unit Cost</th>
-                <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">QTY</th>
-                <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm">Amount</th>
+                <th className="text-left p-3 font-bold text-green-600 uppercase tracking-wider text-sm">Description</th>
+                <th className="text-right p-3 font-bold text-green-600 uppercase tracking-wider text-sm hidden sm:table-cell">Unit Cost</th>
+                <th className="text-right p-3 font-bold text-green-600 uppercase tracking-wider text-sm hidden sm:table-cell">QTY</th>
+                <th className="text-right p-3 font-bold text-green-600 uppercase tracking-wider text-sm">Amount</th>
               </tr>
             </thead>
             <tbody>
               {receipt.items.map((item, index) => (
-                <tr key={index} className="border-b border-secondary">
-                  <td className="p-3"><p className="font-medium text-sm text-foreground">{item.name}</p></td>
-                  <td className="text-right p-3 text-sm hidden sm:table-cell">GH₵{item.price.toFixed(2)}</td>
-                  <td className="text-right p-3 text-sm hidden sm:table-cell">{item.quantity}</td>
-                  <td className="text-right p-3 font-medium text-sm text-foreground">GH₵{(item.quantity * item.price).toFixed(2)}</td>
+                <tr key={index} className="border-b border-gray-100">
+                  <td className="p-3">
+                    <p className="font-medium text-sm text-gray-900">{item.name}</p>
+                  </td>
+                  <td className="text-right p-3 text-sm text-gray-600 hidden sm:table-cell">GH₵{item.price.toFixed(2)}</td>
+                  <td className="text-right p-3 text-sm text-gray-600 hidden sm:table-cell">{item.quantity}</td>
+                  <td className="text-right p-3 font-medium text-sm text-gray-900">GH₵{(item.quantity * item.price).toFixed(2)}</td>
                 </tr>
               ))}
             </tbody>
           </table>
         </div>
 
+        {/* Totals */}
         <div className="flex justify-end mb-12">
           <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
             <div className="flex justify-between text-sm">
-              <span className="text-muted-foreground">Subtotal:</span>
-              <span className="font-medium text-foreground">GH₵{subtotal.toFixed(2)}</span>
+              <span className="text-gray-600">Subtotal:</span>
+              <span className="font-medium text-gray-900">GH₵{subtotal.toFixed(2)}</span>
             </div>
             {receipt.discount && receipt.discount > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Discount ({receipt.discount}%):</span>
-                <span className="font-medium text-destructive">-GH₵{discountAmount.toFixed(2)}</span>
+                <span className="text-gray-600">Discount ({receipt.discount}%):</span>
+                <span className="font-medium text-red-600">-GH₵{discountAmount.toFixed(2)}</span>
               </div>
             )}
             {receipt.tax && receipt.tax > 0 && (
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax ({receipt.tax}%):</span>
-                <span className="font-medium">+GH₵{taxAmount.toFixed(2)}</span>
+                <span className="text-gray-600">Tax ({receipt.tax}%):</span>
+                <span className="font-medium text-gray-900">+GH₵{taxAmount.toFixed(2)}</span>
               </div>
             )}
-            <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center rounded-lg mt-4">
+            <div className="bg-green-600 text-white p-4 flex justify-between items-center rounded-lg mt-4">
               <span className="text-lg font-bold">Total</span>
               <span className="text-xl font-bold">GH₵{receipt.totalAmount.toFixed(2)}</span>
             </div>
           </div>
         </div>
 
+        {/* Note & Footer */}
         <div>
           <div className="mb-8">
-            <h4 className="font-bold text-primary mb-2">NOTES</h4>
-            <p className="text-sm text-muted-foreground">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
+            <h4 className="font-bold text-green-600 mb-2">NOTES</h4>
+            <p className="text-sm text-gray-600">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
           </div>
         </div>
       </Card>
 
+      {/* Print Styles */}
       <style jsx global>{`
         @media print {
-          body * { visibility: hidden; }
-          .print-container, .print-container * { visibility: visible; }
-          .print-container { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; border: none; box-shadow: none; background-color: white !important; }
-          .print\\:hidden { display: none !important; }
+          body * {
+            visibility: hidden;
+          }
+          .print-container,
+          .print-container * {
+            visibility: visible;
+          }
+          .print-container {
+            position: absolute;
+            left: 0;
+            top: 0;
+            width: 100%;
+            padding: 0;
+            margin: 0;
+            border: none;
+            box-shadow: none;
+            background-color: white !important;
+          }
+          .print\\:hidden {
+            display: none !important;
+          }
         }
       `}</style>
     </div>

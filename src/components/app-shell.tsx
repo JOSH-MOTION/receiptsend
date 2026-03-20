@@ -55,8 +55,8 @@ function NavLink({
       className={cn(
         "flex items-center gap-3 rounded-xl px-4 py-3 text-sm font-medium transition-all duration-200",
         isActive
-          ? "bg-gradient-to-r from-primary to-accent text-white shadow-lg shadow-primary/30"
-          : "text-muted-foreground hover:bg-secondary hover:text-secondary-foreground"
+          ? "bg-gradient-to-r from-green-600 to-emerald-600 text-white shadow-lg shadow-green-500/30"
+          : "text-gray-600 hover:bg-green-50 hover:text-green-700"
       )}
     >
       <Icon className="h-5 w-5" />
@@ -101,10 +101,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
   const organizationName = organization?.companyName || "My Organization";
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-secondary/20 via-background to-background">
+    <div className="min-h-screen bg-white">
       {/* Desktop Sidebar */}
       <aside className="fixed left-0 top-0 z-40 h-screen w-72 hidden lg:block">
-        <div className="flex h-full flex-col gap-6 bg-card/80 backdrop-blur-xl border-r border-border p-6">
+        <div className="flex h-full flex-col gap-6 bg-white border-r border-gray-200 p-6">
           {/* Logo */}
           <Link href="/dashboard" className="flex items-center gap-3 group">
             <div className="relative group-hover:shadow-xl transition-all">
@@ -118,10 +118,10 @@ export function AppShell({ children }: { children: React.ReactNode }) {
               />
             </div>
             <div className="flex flex-col">
-              <span className="text-xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+              <span className="text-xl font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
                 SENDORA
               </span>
-              <span className="text-xs text-muted-foreground">Digital Receipts</span>
+              <span className="text-xs text-gray-600">Digital Receipts</span>
             </div>
           </Link>
 
@@ -140,12 +140,12 @@ export function AppShell({ children }: { children: React.ReactNode }) {
           </nav>
 
           {/* User Profile */}
-          <div className="border-t border-border pt-4">
+          <div className="border-t border-gray-200 pt-4">
             <DropdownMenu>
               <DropdownMenuTrigger asChild>
                 <Button 
                   variant="ghost" 
-                  className="w-full justify-start gap-3 h-auto py-3 px-4 hover:bg-secondary rounded-xl"
+                  className="w-full justify-start gap-3 h-auto py-3 px-4 hover:bg-green-50 rounded-xl"
                 >
                   {isUserLoading || isOrgLoading ? (
                     <>
@@ -157,26 +157,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                     </>
                   ) : (
                     <>
-                      <Avatar className="h-10 w-10 border-2 border-secondary">
+                      <Avatar className="h-10 w-10 border-2 border-green-200">
                         <AvatarImage src={userAvatar?.imageUrl} alt={userAvatar?.description} />
-                        <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                        <AvatarFallback className="bg-gradient-to-br from-green-600 to-emerald-600 text-white">
                           {user?.email?.charAt(0).toUpperCase() || 'U'}
                         </AvatarFallback>
                       </Avatar>
                       <div className="flex flex-col items-start flex-1 text-left">
-                        <span className="text-sm font-semibold text-foreground">
+                        <span className="text-sm font-semibold text-gray-900">
                           {organizationName}
                         </span>
-                        <span className="text-xs text-muted-foreground truncate w-full">
+                        <span className="text-xs text-gray-600 truncate w-full">
                           {user?.email}
                         </span>
                       </div>
-                      <ChevronRight className="h-4 w-4 text-muted-foreground ml-auto" />
+                      <ChevronRight className="h-4 w-4 text-gray-400 ml-auto" />
                     </>
                   )}
                 </Button>
               </DropdownMenuTrigger>
-              <DropdownMenuContent align="start" className="w-56 backdrop-blur-xl bg-card/90">
+              <DropdownMenuContent align="start" className="w-56 bg-white border border-gray-200 shadow-lg">
                 <DropdownMenuLabel>My Account</DropdownMenuLabel>
                 <DropdownMenuSeparator />
                 <DropdownMenuItem asChild>
@@ -184,7 +184,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </DropdownMenuItem>
                 <DropdownMenuItem>Support</DropdownMenuItem>
                 <DropdownMenuSeparator />
-                <DropdownMenuItem onClick={handleLogout} className="text-destructive flex items-center gap-2">
+                <DropdownMenuItem onClick={handleLogout} className="text-red-600 flex items-center gap-2">
                   <LogOut className="h-4 w-4" />
                   Logout
                 </DropdownMenuItem>
@@ -195,25 +195,26 @@ export function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       {/* Mobile Header */}
-      <header className="sticky top-0 z-30 lg:hidden bg-card/80 backdrop-blur-xl border-b border-border">
+      <header className="sticky top-0 z-30 lg:hidden bg-white border-b border-gray-200">
         <div className="flex h-16 items-center justify-between px-4">
           <Link href="/dashboard" className="flex items-center gap-2">
-            <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-accent p-1.5">
+            <div className="relative w-8 h-8 rounded-lg bg-gradient-to-br from-green-600 to-emerald-600 p-1.5">
               <Image src="/logo.png" alt="SENDORA" fill className="object-contain p-0.5" priority />
             </div>
-            <span className="text-lg font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            <span className="text-lg font-bold bg-gradient-to-r from-green-600 to-emerald-600 bg-clip-text text-transparent">
               SENDORA
             </span>
           </Link>
           
           <div className="flex items-center gap-2">
-            <Button variant="ghost" size="icon">
+            <Button variant="ghost" size="icon" className="text-gray-600 hover:text-green-600">
               <Bell className="h-5 w-5" />
             </Button>
             <Button
               variant="ghost"
               size="icon"
               onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
+              className="text-gray-600 hover:text-green-600"
             >
               {isMobileMenuOpen ? <X className="h-5 w-5" /> : <Menu className="h-5 w-5" />}
             </Button>
@@ -222,7 +223,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
         {/* Mobile Menu */}
         {isMobileMenuOpen && (
-          <div className="border-t border-border bg-card/95 backdrop-blur-xl">
+          <div className="border-t border-gray-200 bg-white">
             <nav className="p-4 space-y-2">
               {navigation.map((item) => (
                 <NavLink
@@ -236,29 +237,29 @@ export function AppShell({ children }: { children: React.ReactNode }) {
                 </NavLink>
               ))}
             </nav>
-            <div className="border-t border-border p-4">
+            <div className="border-t border-gray-200 p-4">
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button variant="ghost" className="w-full justify-start gap-3 h-auto py-3">
-                    <Avatar className="h-8 w-8 border-2 border-secondary">
+                    <Avatar className="h-8 w-8 border-2 border-green-200">
                       <AvatarImage src={userAvatar?.imageUrl} />
-                      <AvatarFallback className="bg-gradient-to-br from-primary to-accent text-primary-foreground">
+                      <AvatarFallback className="bg-gradient-to-br from-green-600 to-emerald-600 text-white">
                         {user?.email?.charAt(0).toUpperCase() || 'U'}
                       </AvatarFallback>
                     </Avatar>
                     <div className="flex flex-col items-start flex-1 text-left">
-                      <span className="text-sm font-semibold">{organizationName}</span>
-                      <span className="text-xs text-muted-foreground">{user?.email}</span>
+                      <span className="text-sm font-semibold text-gray-900">{organizationName}</span>
+                      <span className="text-xs text-gray-600">{user?.email}</span>
                     </div>
                   </Button>
                 </DropdownMenuTrigger>
-                <DropdownMenuContent align="start" className="w-56">
+                <DropdownMenuContent align="start" className="w-56 bg-white border border-gray-200 shadow-lg">
                   <DropdownMenuLabel>My Account</DropdownMenuLabel>
                   <DropdownMenuSeparator />
                   <DropdownMenuItem asChild><Link href="/settings">Settings</Link></DropdownMenuItem>
                   <DropdownMenuItem>Support</DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={handleLogout} className="text-destructive flex items-center gap-2">
+                  <DropdownMenuItem onClick={handleLogout} className="text-red-600 flex items-center gap-2">
                     <LogOut className="h-4 w-4"/>
                     Logout
                   </DropdownMenuItem>
@@ -274,7 +275,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
         <div className="p-4 sm:p-6 lg:p-8">
           {/* Desktop Notifications */}
           <div className="hidden lg:flex justify-end mb-4">
-            <Button variant="ghost" size="icon" className="rounded-full">
+            <Button variant="ghost" size="icon" className="rounded-full text-gray-600 hover:text-green-600">
               <Bell className="h-5 w-5" />
             </Button>
           </div>
