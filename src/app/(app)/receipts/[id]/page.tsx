@@ -3,13 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useParams, useRouter } from 'next/navigation';
 import Image from 'next/image';
-import {
-  ArrowLeft,
-  Printer,
-  Mail,
-  MessageSquare,
-  Loader2,
-} from 'lucide-react';
+import { ArrowLeft, Printer, Mail, MessageSquare, Loader2 } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card, CardTitle, CardContent } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
@@ -55,7 +49,6 @@ export default function ReceiptDetailsPage() {
   const [isSendingSMS, setIsSendingSMS] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
-
   const receiptId = Array.isArray(params.id) ? params.id[0] : params.id;
 
   const receiptRef = useMemoFirebase(
@@ -63,35 +56,26 @@ export default function ReceiptDetailsPage() {
     [firestore, user, receiptId]
   );
   const { data: receipt, isLoading: isReceiptLoading, error } = useDoc<Omit<Receipt, 'id'>>(receiptRef);
-  
+
   const orgRef = useMemoFirebase(
     () => (user ? doc(firestore, `organizations/${user.uid}`) : null),
     [firestore, user]
   );
   const { data: orgData, isLoading: isOrgLoading } = useDoc(orgRef);
-  
-  useEffect(() => {
-    setIsClient(true);
-  }, []);
-  
+
+  useEffect(() => { setIsClient(true); }, []);
+
   useEffect(() => {
     if (!isUserLoading && !isReceiptLoading && error) {
-      toast({
-        title: 'Permission Error',
-        description: 'You do not have permission to view this receipt.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Permission Error', description: 'You do not have permission to view this receipt.', variant: 'destructive' });
       router.push('/receipts');
     }
   }, [error, isUserLoading, isReceiptLoading, router, toast]);
 
-  const handlePrint = () => {
-    window.print();
-  };
-  
+  const handlePrint = () => window.print();
+
   const handleResendEmail = async () => {
     if (!receipt || !orgData) return;
-    
     setIsSendingEmail(true);
     try {
       const flowInput: SendReceiptInput = {
@@ -113,84 +97,53 @@ export default function ReceiptDetailsPage() {
           logoUrl: orgData.logoUrl,
         }
       };
-
       const result = await sendReceiptAction(flowInput);
-
       if (result.success) {
-        toast({
-          title: 'Email Sent!',
-          description: `Receipt has been resent to ${receipt.customerEmail}`,
-        });
+        toast({ title: 'Email Sent!', description: `Receipt has been resent to ${receipt.customerEmail}` });
       } else {
-        toast({
-          title: 'Email Failed',
-          description: result.message,
-          variant: 'destructive',
-        });
+        toast({ title: 'Email Failed', description: result.message, variant: 'destructive' });
       }
     } catch (error: any) {
-      console.error('Error resending email:', error);
-      toast({
-        title: 'Error',
-        description: 'Failed to resend email. Please try again.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'Failed to resend email. Please try again.', variant: 'destructive' });
     } finally {
       setIsSendingEmail(false);
     }
   };
-  
+
   const handleResendSMS = async () => {
-    if (!receipt || !receipt.customerPhoneNumber || !orgData) {
-      toast({
-        title: 'Cannot send SMS',
-        description: 'The customer does not have a phone number saved for this receipt.',
-        variant: 'destructive',
-      });
+    if (!receipt || !receipt.customerPhoneNumber || !orgData || !user) {
+      toast({ title: 'Cannot send SMS', description: 'The customer does not have a phone number saved for this receipt.', variant: 'destructive' });
       return;
     }
-    
     setIsSendingSMS(true);
     try {
       const smsMessage = `Your receipt #${receipt.receiptNumber} from ${orgData.companyName || 'SENDORA'} for GH₵${receipt.totalAmount.toFixed(2)} is ready. Thank you!`;
-      
       const smsInput: SendSmsInput = {
         to: receipt.customerPhoneNumber,
         message: smsMessage,
         organizationName: orgData.companyName,
       };
 
-      const result = await sendSmsAction(smsInput);
+      // ✅ FIXED: pass user.uid so SMS credits are deducted
+      const result = await sendSmsAction(smsInput, user.uid);
 
       if (result.success) {
-        toast({
-          title: 'SMS Sent!',
-          description: result.message,
-        });
+        toast({ title: 'SMS Sent!', description: result.message });
       } else {
-        toast({
-          title: 'SMS Failed',
-          description: result.message,
-          variant: 'destructive',
-        });
+        toast({ title: 'SMS Failed', description: result.message, variant: 'destructive' });
       }
     } catch (error: any) {
-      console.error('Error resending SMS:', error);
-      toast({
-        title: 'Error',
-        description: 'An unexpected error occurred while resending the SMS.',
-        variant: 'destructive',
-      });
+      toast({ title: 'Error', description: 'An unexpected error occurred while resending the SMS.', variant: 'destructive' });
     } finally {
       setIsSendingSMS(false);
     }
   };
-  
+
   const formatTimestamp = (ts: any, timeFormat: string = 'MMMM dd, yyyy') => {
     if (!ts) return '...';
     const date = ts.seconds ? fromUnixTime(ts.seconds) : ts;
     return format(date, timeFormat);
-  }
+  };
 
   const isLoading = isUserLoading || isReceiptLoading || isOrgLoading;
 
@@ -204,238 +157,150 @@ export default function ReceiptDetailsPage() {
       </div>
     );
   }
-  
+
   if (!receipt) {
     return (
       <div className="container mx-auto py-8 max-w-4xl text-center">
         <Card className="p-8">
-            <CardTitle className="text-2xl">Receipt Not Found</CardTitle>
-            <p className="mt-4">The receipt you are looking for does not exist or you do not have permission to view it.</p>
-            <Button asChild className="mt-6">
-              <Link href="/receipts">Back to Receipts</Link>
-            </Button>
+          <CardTitle className="text-2xl">Receipt Not Found</CardTitle>
+          <p className="mt-4">The receipt you are looking for does not exist or you do not have permission to view it.</p>
+          <Button asChild className="mt-6"><Link href="/receipts">Back to Receipts</Link></Button>
         </Card>
       </div>
     );
   }
 
-  const subtotal = receipt.items.reduce(
-    (acc, item) => acc + item.quantity * item.price,
-    0
-  );
+  const subtotal = receipt.items.reduce((acc, item) => acc + item.quantity * item.price, 0);
   const discountAmount = (subtotal * (receipt.discount || 0)) / 100;
   const subtotalAfterDiscount = subtotal - discountAmount;
   const taxAmount = (subtotalAfterDiscount * (receipt.tax || 0)) / 100;
 
   return (
     <div className="container mx-auto py-8 max-w-4xl print-container">
-      {/* Header - Don't print */}
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between mb-6 print:hidden gap-4">
         <Button variant="ghost" asChild>
-          <Link href="/receipts">
-            <ArrowLeft className="mr-2 h-4 w-4" />
-            Back to Receipts
-          </Link>
+          <Link href="/receipts"><ArrowLeft className="mr-2 h-4 w-4" />Back to Receipts</Link>
         </Button>
         <div className="flex flex-wrap gap-2 w-full sm:w-auto">
-          <Button 
-            variant="outline" 
-            size="sm" 
-            onClick={handleResendEmail}
-            disabled={isSendingEmail || !receipt.deliveryChannels?.includes("email")}
-            className="flex-1 sm:flex-initial"
-          >
-            {isSendingEmail ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                Sending...
-              </>
-            ) : (
-              <>
-                <Mail className="mr-2 h-4 w-4" />
-                Resend Email
-              </>
-            )}
+          <Button variant="outline" size="sm" onClick={handleResendEmail} disabled={isSendingEmail || !receipt.deliveryChannels?.includes("email")} className="flex-1 sm:flex-initial">
+            {isSendingEmail ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</> : <><Mail className="mr-2 h-4 w-4" />Resend Email</>}
           </Button>
           {receipt.customerPhoneNumber && (
-            <Button 
-              variant="outline" 
-              size="sm" 
-              onClick={handleResendSMS}
-              disabled={isSendingSMS || !receipt.deliveryChannels?.includes("sms")}
-              className="flex-1 sm:flex-initial"
-            >
-              {isSendingSMS ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Sending...
-                </>
-              ) : (
-                <>
-                  <MessageSquare className="mr-2 h-4 w-4" />
-                  Resend SMS
-                </>
-              )}
+            <Button variant="outline" size="sm" onClick={handleResendSMS} disabled={isSendingSMS || !receipt.deliveryChannels?.includes("sms")} className="flex-1 sm:flex-initial">
+              {isSendingSMS ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</> : <><MessageSquare className="mr-2 h-4 w-4" />Resend SMS</>}
             </Button>
           )}
           <Button variant="outline" size="sm" onClick={handlePrint} className="flex-1 sm:flex-initial">
-            <Printer className="mr-2 h-4 w-4" />
-            Print
+            <Printer className="mr-2 h-4 w-4" />Print
           </Button>
         </div>
       </div>
-      
-       {isClient && (
+
+      {isClient && (
         <div className="text-center text-sm text-muted-foreground mb-4 print:hidden">
           {receipt.deliveryChannels?.includes("email") && `Sent via Email on ${formatTimestamp(receipt.createdAt, "MMMM dd, yyyy, hh:mm a")}`}
-          {receipt.deliveryChannels?.includes("sms") && `Sent via SMS on ${formatTimestamp(receipt.createdAt, "MMMM dd, yyyy, hh:mm a")}`}
+          {receipt.deliveryChannels?.includes("sms") && ` · Sent via SMS on ${formatTimestamp(receipt.createdAt, "MMMM dd, yyyy, hh:mm a")}`}
         </div>
-       )}
+      )}
 
       {/* Receipt Card */}
       <Card className="p-6 sm:p-8 md:p-12 shadow-2xl bg-card border-border">
-          {/* Header */}
-          <div className="flex flex-col sm:flex-row justify-between items-start pb-8 mb-8">
-            <div className='flex items-start gap-4 mb-6 sm:mb-0'>
-                <div className="relative w-16 h-16 flex-shrink-0">
-                    <Image 
-                        src={orgData?.logoUrl || '/logo.png'} 
-                        alt={orgData?.companyName || 'Company Logo'}
-                        fill
-                        className="object-contain"
-                    />
-                </div>
-                <div>
-                    <h1 className="text-2xl font-bold text-primary">{orgData?.companyName || 'Business Name'}</h1>
-                    <p className="text-muted-foreground text-sm max-w-xs mt-1">{orgData?.address}</p>
-                </div>
+        <div className="flex flex-col sm:flex-row justify-between items-start pb-8 mb-8">
+          <div className='flex items-start gap-4 mb-6 sm:mb-0'>
+            <div className="relative w-16 h-16 flex-shrink-0">
+              <Image src={orgData?.logoUrl || '/logo.png'} alt={orgData?.companyName || 'Company Logo'} fill className="object-contain" />
             </div>
-            <div className="text-left sm:text-right">
-                <h2 className="text-5xl font-extrabold text-foreground tracking-wider">RECIEPT</h2>
-                <p className="text-muted-foreground mt-2">
-                    Receipt#: {receipt.receiptNumber}
-                </p>
+            <div>
+              <h1 className="text-2xl font-bold text-primary">{orgData?.companyName || 'Business Name'}</h1>
+              <p className="text-muted-foreground text-sm max-w-xs mt-1">{orgData?.address}</p>
             </div>
           </div>
-          
-          <Separator className="my-8" />
-
-          {/* Customer Info & Dates */}
-           <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
-              <div>
-                  <h3 className="font-semibold mb-2 text-muted-foreground">BILLED TO</h3>
-                  <p className="font-medium text-foreground">{receipt.customerName}</p>
-                  <p className="text-muted-foreground text-sm">{receipt.customerEmail}</p>
-                  {receipt.customerPhoneNumber && (
-                      <p className="text-muted-foreground text-sm">{receipt.customerPhoneNumber}</p>
-                  )}
-              </div>
-              <div className="text-left md:text-right">
-                  <div className="mb-2">
-                      <span className="font-semibold text-muted-foreground">ReceiptDate: </span>
-                      <span className="text-foreground">{formatTimestamp(receipt.createdAt)}</span>
-                  </div>
-                  <div>
-                      <span className="font-semibold text-muted-foreground">Due Date: </span>
-                       <span className="text-foreground">{formatTimestamp(receipt.createdAt)}</span>
-                  </div>
-              </div>
+          <div className="text-left sm:text-right">
+            <h2 className="text-5xl font-extrabold text-foreground tracking-wider">RECEIPT</h2>
+            <p className="text-muted-foreground mt-2">Receipt#: {receipt.receiptNumber}</p>
           </div>
+        </div>
 
-          {/* Items Table */}
-          <div className="mb-8 overflow-x-auto">
-            <table className="w-full">
-                <thead className="border-b-2 border-t-2 border-border">
-                    <tr>
-                        <th className="text-left p-3 font-bold text-primary uppercase tracking-wider text-sm">Description</th>
-                        <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">Unit Cost</th>
-                        <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">QTY</th>
-                        <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm">Amount</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {receipt.items.map((item, index) => (
-                    <tr key={index} className="border-b border-secondary">
-                        <td className="p-3">
-                            <p className="font-medium text-sm text-foreground">{item.name}</p>
-                        </td>
-                        <td className="text-right p-3 text-sm hidden sm:table-cell">GH₵{item.price.toFixed(2)}</td>
-                        <td className="text-right p-3 text-sm hidden sm:table-cell">{item.quantity}</td>
-                        <td className="text-right p-3 font-medium text-sm text-foreground">GH₵{(item.quantity * item.price).toFixed(2)}</td>
-                    </tr>
-                    ))}
-                </tbody>
-            </table>
-          </div>
+        <Separator className="my-8" />
 
-          {/* Totals */}
-          <div className="flex justify-end mb-12">
-            <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
-                <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Subtotal:</span>
-                    <span className="font-medium text-foreground">GH₵{subtotal.toFixed(2)}</span>
-                </div>
-                {receipt.discount && receipt.discount > 0 && (
-                <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Discount ({receipt.discount}%):</span>
-                    <span className="font-medium text-destructive">-GH₵{discountAmount.toFixed(2)}</span>
-                </div>
-                )}
-                {receipt.tax && receipt.tax > 0 && (
-                <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Tax ({receipt.tax}%):</span>
-                    <span className="font-medium">+GH₵{taxAmount.toFixed(2)}</span>
-                </div>
-                )}
-                <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center rounded-lg mt-4">
-                    <span className="text-lg font-bold">Total</span>
-                    <span className="text-xl font-bold">GH₵{receipt.totalAmount.toFixed(2)}</span>
-                </div>
-            </div>
-          </div>
-
-          {/* Note & Footer */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-8 pb-8">
           <div>
-            <div className="mb-8">
-              <h4 className="font-bold text-primary mb-2">NOTES</h4>
-              <p className="text-sm text-muted-foreground">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
+            <h3 className="font-semibold mb-2 text-muted-foreground">BILLED TO</h3>
+            <p className="font-medium text-foreground">{receipt.customerName}</p>
+            <p className="text-muted-foreground text-sm">{receipt.customerEmail}</p>
+            {receipt.customerPhoneNumber && <p className="text-muted-foreground text-sm">{receipt.customerPhoneNumber}</p>}
+          </div>
+          <div className="text-left md:text-right">
+            <div className="mb-2">
+              <span className="font-semibold text-muted-foreground">Receipt Date: </span>
+              <span className="text-foreground">{formatTimestamp(receipt.createdAt)}</span>
             </div>
           </div>
+        </div>
+
+        <div className="mb-8 overflow-x-auto">
+          <table className="w-full">
+            <thead className="border-b-2 border-t-2 border-border">
+              <tr>
+                <th className="text-left p-3 font-bold text-primary uppercase tracking-wider text-sm">Description</th>
+                <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">Unit Cost</th>
+                <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm hidden sm:table-cell">QTY</th>
+                <th className="text-right p-3 font-bold text-primary uppercase tracking-wider text-sm">Amount</th>
+              </tr>
+            </thead>
+            <tbody>
+              {receipt.items.map((item, index) => (
+                <tr key={index} className="border-b border-secondary">
+                  <td className="p-3"><p className="font-medium text-sm text-foreground">{item.name}</p></td>
+                  <td className="text-right p-3 text-sm hidden sm:table-cell">GH₵{item.price.toFixed(2)}</td>
+                  <td className="text-right p-3 text-sm hidden sm:table-cell">{item.quantity}</td>
+                  <td className="text-right p-3 font-medium text-sm text-foreground">GH₵{(item.quantity * item.price).toFixed(2)}</td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+
+        <div className="flex justify-end mb-12">
+          <div className="w-full md:w-1/2 lg:w-2/5 space-y-3">
+            <div className="flex justify-between text-sm">
+              <span className="text-muted-foreground">Subtotal:</span>
+              <span className="font-medium text-foreground">GH₵{subtotal.toFixed(2)}</span>
+            </div>
+            {receipt.discount && receipt.discount > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Discount ({receipt.discount}%):</span>
+                <span className="font-medium text-destructive">-GH₵{discountAmount.toFixed(2)}</span>
+              </div>
+            )}
+            {receipt.tax && receipt.tax > 0 && (
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Tax ({receipt.tax}%):</span>
+                <span className="font-medium">+GH₵{taxAmount.toFixed(2)}</span>
+              </div>
+            )}
+            <div className="bg-primary text-primary-foreground p-4 flex justify-between items-center rounded-lg mt-4">
+              <span className="text-lg font-bold">Total</span>
+              <span className="text-xl font-bold">GH₵{receipt.totalAmount.toFixed(2)}</span>
+            </div>
+          </div>
+        </div>
+
+        <div>
+          <div className="mb-8">
+            <h4 className="font-bold text-primary mb-2">NOTES</h4>
+            <p className="text-sm text-muted-foreground">{receipt.thankYouMessage || 'Thank you for your business!'}</p>
+          </div>
+        </div>
       </Card>
 
-      {/* Print Styles */}
       <style jsx global>{`
         @media print {
-          body * {
-            visibility: hidden;
-          }
-          .print-container,
-          .print-container * {
-            visibility: visible;
-          }
-          .print-container {
-            position: absolute;
-            left: 0;
-            top: 0;
-            width: 100%;
-            padding: 0;
-            margin: 0;
-            border: none;
-            box-shadow: none;
-            background-color: white !important;
-          }
-           .print-container .dark\\:bg-black {
-             background-color: white !important;
-           }
-           .print-container .dark\\:text-gray-200 {
-             color: #1f2937 !important; /* gray-800 */
-           }
-           .print-container .dark\\:border-red-900, .print-container .dark\\:border-red-900\\/50 {
-             border-color: #fecaca !important; /* red-200 */
-           }
-          .print\\:hidden {
-            display: none !important;
-          }
+          body * { visibility: hidden; }
+          .print-container, .print-container * { visibility: visible; }
+          .print-container { position: absolute; left: 0; top: 0; width: 100%; padding: 0; margin: 0; border: none; box-shadow: none; background-color: white !important; }
+          .print\\:hidden { display: none !important; }
         }
       `}</style>
     </div>

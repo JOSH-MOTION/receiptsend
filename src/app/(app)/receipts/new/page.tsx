@@ -1,4 +1,3 @@
-
 "use client";
 
 import { useState, useEffect } from "react";
@@ -50,14 +49,11 @@ interface Template {
   content: string;
 }
 
-// Function to generate a unique receipt number
 async function generateReceiptNumber(): Promise<string> {
     const prefix = 'RCT-';
     const date = new Date();
     const year = date.getFullYear().toString().slice(-2);
     const month = (date.getMonth() + 1).toString().padStart(2, '0');
-    // In a real app, you'd query Firestore for the last receipt to get the sequence.
-    // For this client-side version, we'll use a random sequence for simplicity.
     const sequence = Math.floor(Math.random() * 9000) + 1000;
     return `${prefix}${year}${month}${sequence}`;
 }
@@ -121,7 +117,6 @@ export default function NewReceiptPage() {
         type: 'receipt_thank_you',
         createdAt: serverTimestamp(),
       });
-
       toast({ title: "Success", description: `Template "${newTemplateName}" saved.` });
       setNewTemplateName("");
       setIsSaveTemplateOpen(false);
@@ -197,15 +192,13 @@ export default function NewReceiptPage() {
         tax,
         totalAmount: total,
         thankYouMessage,
-        createdAt: creationDate, // Use a concrete date for the flow
+        createdAt: creationDate,
         deliveryChannels,
       };
       
       const receiptsCol = collection(firestore, `organizations/${user.uid}/receipts`);
-      // Save with server timestamp for accurate Firestore sorting/querying
       newReceiptRef = await addDoc(receiptsCol, { ...receiptData, createdAt: serverTimestamp() });
       
-      // Also create/update a contact to avoid duplicates
       const contactRef = doc(firestore, `organizations/${user.uid}/contacts`, customerEmail);
       await setDoc(contactRef, {
         organizationId: user.uid,
@@ -220,7 +213,6 @@ export default function NewReceiptPage() {
         description: "Your new receipt has been saved successfully.",
       });
 
-      // If sendEmail is checked, call the server action
       if (sendEmail) {
         toast({
             title: "Sending Email...",
@@ -240,24 +232,16 @@ export default function NewReceiptPage() {
             }
         };
 
-        // We don't need to await this, but we can catch errors
         sendReceiptAction(flowInput).then(result => {
           if (result.success) {
-              toast({
-                  title: "Receipt Sent!",
-                  description: result.message,
-              });
+              toast({ title: "Receipt Sent!", description: result.message });
           } else {
-              toast({
-                  title: "Email Failed",
-                  description: result.message,
-                  variant: "destructive",
-              });
+              toast({ title: "Email Failed", description: result.message, variant: "destructive" });
           }
         });
       }
       
-      // If sendSMS is checked, call the SMS server action
+      // ✅ FIXED: pass user.uid so SMS credits are deducted
       if (sendSMS && customerPhone) {
         toast({
             title: "Sending SMS...",
@@ -272,23 +256,14 @@ export default function NewReceiptPage() {
             organizationName: orgData.companyName,
         };
     
-        // We don't need to await this, but we can catch errors
-        sendSmsAction(smsFlowInput).then(result => {
+        sendSmsAction(smsFlowInput, user.uid).then(result => {
             if (result.success) {
-                toast({
-                    title: "SMS Sent!",
-                    description: result.message,
-                });
+                toast({ title: "SMS Sent!", description: result.message });
             } else {
-                toast({
-                    title: "SMS Failed",
-                    description: result.message,
-                    variant: "destructive",
-                });
+                toast({ title: "SMS Failed", description: result.message, variant: "destructive" });
             }
         });
       }
-
 
       router.push(`/receipts/${newReceiptRef.id}`);
     } catch (error) {
@@ -305,7 +280,6 @@ export default function NewReceiptPage() {
   return (
     <div className="min-h-screen p-4 md:p-8">
       <div className="max-w-4xl mx-auto space-y-8">
-        {/* Header */}
         <div className="flex items-center gap-4">
           <Button variant="ghost" size="icon" asChild>
             <Link href="/receipts">
@@ -313,9 +287,7 @@ export default function NewReceiptPage() {
             </Link>
           </Button>
           <div>
-            <h1 className="text-4xl font-bold text-primary">
-              Create Receipt
-            </h1>
+            <h1 className="text-4xl font-bold text-primary">Create Receipt</h1>
             <p className="text-muted-foreground mt-2">Generate and send a new digital receipt</p>
           </div>
         </div>
@@ -330,38 +302,16 @@ export default function NewReceiptPage() {
             <CardContent className="space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="customerName">Customer Name *</Label>
-                <Input
-                  id="customerName"
-                  placeholder="John Doe"
-                  value={customerName}
-                  onChange={(e) => setCustomerName(e.target.value)}
-                  required
-                />
+                <Input id="customerName" placeholder="John Doe" value={customerName} onChange={(e) => setCustomerName(e.target.value)} required />
               </div>
-              
               <div className="space-y-2">
                 <Label htmlFor="customerEmail">Email Address *</Label>
-                <Input
-                  id="customerEmail"
-                  type="email"
-                  placeholder="john@example.com"
-                  value={customerEmail}
-                  onChange={(e) => setCustomerEmail(e.target.value)}
-                  required
-                />
+                <Input id="customerEmail" type="email" placeholder="john@example.com" value={customerEmail} onChange={(e) => setCustomerEmail(e.target.value)} required />
               </div>
-
-               <div className="space-y-2">
+              <div className="space-y-2">
                 <Label htmlFor="customerPhone">Phone Number (Optional)</Label>
-                <Input
-                  id="customerPhone"
-                  type="tel"
-                  placeholder="+233 24 123 4567"
-                  value={customerPhone}
-                  onChange={(e) => setCustomerPhone(e.target.value)}
-                />
+                <Input id="customerPhone" type="tel" placeholder="+233 24 123 4567" value={customerPhone} onChange={(e) => setCustomerPhone(e.target.value)} />
               </div>
-
             </CardContent>
           </Card>
           
@@ -376,53 +326,24 @@ export default function NewReceiptPage() {
                 <div key={index} className="flex gap-4 items-end p-4 rounded-lg border bg-secondary/30">
                   <div className="flex-1 space-y-2">
                     <Label htmlFor={`item-name-${index}`}>Item Name</Label>
-                    <Input
-                      id={`item-name-${index}`}
-                      placeholder="Product or service"
-                      value={item.name}
-                      onChange={(e) => updateItem(index, "name", e.target.value)}
-                    />
+                    <Input id={`item-name-${index}`} placeholder="Product or service" value={item.name} onChange={(e) => updateItem(index, "name", e.target.value)} />
                   </div>
                   <div className="w-24 space-y-2">
                     <Label htmlFor={`item-quantity-${index}`}>Qty</Label>
-                    <Input
-                      id={`item-quantity-${index}`}
-                      type="number"
-                      min="1"
-                      value={item.quantity}
-                      onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)}
-                    />
+                    <Input id={`item-quantity-${index}`} type="number" min="1" value={item.quantity} onChange={(e) => updateItem(index, "quantity", parseInt(e.target.value) || 1)} />
                   </div>
                   <div className="w-32 space-y-2">
                     <Label htmlFor={`item-price-${index}`}>Price</Label>
-                    <Input
-                      id={`item-price-${index}`}
-                      type="number"
-                      min="0"
-                      step="0.01"
-                      value={item.price}
-                      onChange={(e) => updateItem(index, "price", parseFloat(e.target.value) || 0)}
-                    />
+                    <Input id={`item-price-${index}`} type="number" min="0" step="0.01" value={item.price} onChange={(e) => updateItem(index, "price", parseFloat(e.target.value) || 0)} />
                   </div>
                   {items.length > 1 && (
-                    <Button
-                      type="button"
-                      variant="ghost"
-                      size="icon"
-                      onClick={() => removeItem(index)}
-                      className="text-destructive hover:bg-destructive/10"
-                    >
+                    <Button type="button" variant="ghost" size="icon" onClick={() => removeItem(index)} className="text-destructive hover:bg-destructive/10">
                       <Trash2 className="h-4 w-4" />
                     </Button>
                   )}
                 </div>
               ))}
-              <Button
-                type="button"
-                variant="outline"
-                onClick={addItem}
-                className="w-full"
-              >
+              <Button type="button" variant="outline" onClick={addItem} className="w-full">
                 <Plus className="h-4 w-4 mr-2" />
                 Add Item
               </Button>
@@ -438,11 +359,8 @@ export default function NewReceiptPage() {
             <CardContent className="space-y-6">
               <div className="space-y-2">
                 <Label htmlFor="thank-you-message">Thank You Message</Label>
-                 <div className="flex gap-2">
-                  <Select
-                    onValueChange={(value) => setThankYouMessage(value)}
-                    disabled={isTemplatesLoading || !templates || templates.length === 0}
-                  >
+                <div className="flex gap-2">
+                  <Select onValueChange={(value) => setThankYouMessage(value)} disabled={isTemplatesLoading || !templates || templates.length === 0}>
                     <SelectTrigger className="w-[180px]">
                       <SelectValue placeholder="Use a template" />
                     </SelectTrigger>
@@ -451,44 +369,28 @@ export default function NewReceiptPage() {
                         <SelectItem value="loading" disabled>Loading...</SelectItem>
                       ) : (
                         templates && templates.map((template) => (
-                          <SelectItem key={template.id} value={template.content}>
-                            {template.name}
-                          </SelectItem>
+                          <SelectItem key={template.id} value={template.content}>{template.name}</SelectItem>
                         ))
                       )}
                     </SelectContent>
                   </Select>
-                  <Textarea
-                    id="thank-you-message"
-                    placeholder="e.g., Thank you for your business!"
-                    value={thankYouMessage}
-                    onChange={(e) => setThankYouMessage(e.target.value)}
-                    className="flex-1"
-                    rows={3}
-                  />
+                  <Textarea id="thank-you-message" placeholder="e.g., Thank you for your business!" value={thankYouMessage} onChange={(e) => setThankYouMessage(e.target.value)} className="flex-1" rows={3} />
                   <Dialog open={isSaveTemplateOpen} onOpenChange={setIsSaveTemplateOpen}>
                     <DialogTrigger asChild>
-                       <Button type="button" variant="outline" size="icon" title="Save as template">
+                      <Button type="button" variant="outline" size="icon" title="Save as template">
                         <Save className="h-4 w-4" />
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
                       <DialogHeader>
                         <DialogTitle>Save Message as Template</DialogTitle>
-                        <DialogDescription>
-                          Give this template a name to easily reuse it later.
-                        </DialogDescription>
+                        <DialogDescription>Give this template a name to easily reuse it later.</DialogDescription>
                       </DialogHeader>
                       <div className="space-y-2">
                         <Label htmlFor="template-name">Template Name</Label>
-                        <Input
-                          id="template-name"
-                          value={newTemplateName}
-                          onChange={(e) => setNewTemplateName(e.target.value)}
-                          placeholder="e.g., Holiday Greeting"
-                        />
+                        <Input id="template-name" value={newTemplateName} onChange={(e) => setNewTemplateName(e.target.value)} placeholder="e.g., Holiday Greeting" />
                       </div>
-                       <DialogFooter>
+                      <DialogFooter>
                         <Button variant="ghost" onClick={() => setIsSaveTemplateOpen(false)}>Cancel</Button>
                         <Button onClick={handleSaveTemplate} disabled={isSavingTemplate}>
                           {isSavingTemplate && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -503,32 +405,18 @@ export default function NewReceiptPage() {
               <div className="space-y-4">
                 <Label>Delivery Options</Label>
                 <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="sendEmail"
-                    checked={sendEmail}
-                    onCheckedChange={(checked) => setSendEmail(checked as boolean)}
-                  />
-                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">
-                    Send receipt via email
-                  </Label>
+                  <Checkbox id="sendEmail" checked={sendEmail} onCheckedChange={(checked) => setSendEmail(checked as boolean)} />
+                  <Label htmlFor="sendEmail" className="text-sm font-normal cursor-pointer">Send receipt via email</Label>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Checkbox
-                    id="sendSMS"
-                    checked={sendSMS}
-                    onCheckedChange={(checked) => setSendSMS(checked as boolean)}
-                    disabled={!customerPhone}
-                  />
-                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">
-                    Send receipt via SMS
-                  </Label>
+                  <Checkbox id="sendSMS" checked={sendSMS} onCheckedChange={(checked) => setSendSMS(checked as boolean)} disabled={!customerPhone} />
+                  <Label htmlFor="sendSMS" className="text-sm font-normal cursor-pointer">Send receipt via SMS</Label>
                 </div>
               </div>
             </CardContent>
           </Card>
 
-
-          {/* Calculations */}
+          {/* Summary */}
           <Card>
             <CardHeader>
               <CardTitle>Summary</CardTitle>
@@ -537,26 +425,11 @@ export default function NewReceiptPage() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="discount">Discount (%)</Label>
-                  <Input
-                    id="discount"
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="e.g. 10"
-                    value={discount}
-                    onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)}
-                  />
+                  <Input id="discount" type="number" min="0" max="100" placeholder="e.g. 10" value={discount} onChange={(e) => setDiscount(parseFloat(e.target.value) || 0)} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="tax">Tax (%)</Label>
-                  <Input
-                    id="tax"
-                    type="number"
-                    min="0"
-                    placeholder="e.g. 8.5"
-                    value={tax}
-                    onChange={(e) => setTax(parseFloat(e.target.value) || 0)}
-                  />
+                  <Input id="tax" type="number" min="0" placeholder="e.g. 8.5" value={tax} onChange={(e) => setTax(parseFloat(e.target.value) || 0)} />
                 </div>
               </div>
 
@@ -571,7 +444,7 @@ export default function NewReceiptPage() {
                     <span>-GH₵{discountAmount.toFixed(2)}</span>
                   </div>
                 )}
-                 <div className="flex justify-between text-sm">
+                <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal after discount</span>
                   <span>GH₵{subtotalAfterDiscount.toFixed(2)}</span>
                 </div>
@@ -589,31 +462,15 @@ export default function NewReceiptPage() {
             </CardContent>
           </Card>
 
-          {/* Submit */}
           <div className="flex gap-4">
-            <Button
-              type="button"
-              variant="outline"
-              asChild
-              className="flex-1"
-            >
+            <Button type="button" variant="outline" asChild className="flex-1">
               <Link href="/receipts">Cancel</Link>
             </Button>
-            <Button
-              type="submit"
-              disabled={isSubmitting}
-              className="flex-1"
-            >
+            <Button type="submit" disabled={isSubmitting} className="flex-1">
               {isSubmitting ? (
-                <>
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                  Saving...
-                </>
+                <><Loader2 className="h-4 w-4 mr-2 animate-spin" />Saving...</>
               ) : (
-                <>
-                  <Send className="h-4 w-4 mr-2" />
-                  Save & Send Receipt
-                </>
+                <><Send className="h-4 w-4 mr-2" />Save & Send Receipt</>
               )}
             </Button>
           </div>

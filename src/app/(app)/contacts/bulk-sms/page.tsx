@@ -44,7 +44,7 @@ interface Contact {
 }
 
 interface OrgData {
-    companyName?: string;
+  companyName?: string;
 }
 
 export default function BulkSmsPage() {
@@ -67,7 +67,6 @@ export default function BulkSmsPage() {
     [firestore, user]
   );
   const { data: orgData } = useDoc<OrgData>(orgRef);
-
 
   const phoneContacts = contacts?.filter(c => c.phoneNumber) || [];
 
@@ -108,51 +107,54 @@ export default function BulkSmsPage() {
     setIsSending(true);
 
     const contactsToSend = phoneContacts.filter(c => selectedContacts.includes(c.id));
-    
-    const sendPromises = contactsToSend.map(contact => {
-        if (!contact.phoneNumber) return Promise.resolve({ success: false, message: `No phone number for ${contact.name}` });
 
-        return sendSmsAction({
-            to: contact.phoneNumber,
-            message: message,
-            organizationName: orgData?.companyName,
-        });
+    // ✅ FIXED: pass user.uid so SMS credits are deducted per send
+    const sendPromises = contactsToSend.map(contact => {
+      if (!contact.phoneNumber) {
+        return Promise.resolve({ success: false, message: `No phone number for ${contact.name}` });
+      }
+      return sendSmsAction(
+        {
+          to: contact.phoneNumber,
+          message: message,
+          organizationName: orgData?.companyName,
+        },
+        user?.uid,
+      );
     });
 
     try {
-        const results = await Promise.all(sendPromises);
-        
-        const successfulSends = results.filter(r => r.success).length;
-        const failedSends = results.length - successfulSends;
+      const results = await Promise.all(sendPromises);
 
-        if (successfulSends > 0) {
-            toast({
-                title: 'SMS Sent!',
-                description: `Successfully sent simulated messages to ${successfulSends} contact(s). Check the console for details.`,
-            });
-        }
-        
-        if (failedSends > 0) {
-            toast({
-                title: 'Some Messages Failed',
-                description: `Failed to send messages to ${failedSends} contact(s).`,
-                variant: 'destructive',
-            });
-        }
+      const successfulSends = results.filter(r => r.success).length;
+      const failedSends = results.length - successfulSends;
 
-        // Reset state
-        setSelectedContacts([]);
-        setMessage('');
-
-    } catch (error) {
-        console.error("Bulk SMS sending error:", error);
+      if (successfulSends > 0) {
         toast({
-            title: 'An Unexpected Error Occurred',
-            description: 'Could not complete the bulk SMS sending process.',
-            variant: 'destructive',
+          title: 'SMS Sent!',
+          description: `Successfully sent ${successfulSends} message(s).`,
         });
+      }
+
+      if (failedSends > 0) {
+        toast({
+          title: 'Some Messages Failed',
+          description: `Failed to send to ${failedSends} contact(s). Check your SMS balance.`,
+          variant: 'destructive',
+        });
+      }
+
+      setSelectedContacts([]);
+      setMessage('');
+    } catch (error) {
+      console.error("Bulk SMS sending error:", error);
+      toast({
+        title: 'An Unexpected Error Occurred',
+        description: 'Could not complete the bulk SMS sending process.',
+        variant: 'destructive',
+      });
     } finally {
-        setIsSending(false);
+      setIsSending(false);
     }
   };
 
@@ -174,13 +176,15 @@ export default function BulkSmsPage() {
           </BreadcrumbItem>
         </BreadcrumbList>
       </Breadcrumb>
-      
+
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        {/* Left column for message composition */}
+        {/* Compose */}
         <div className="lg:col-span-1 space-y-6">
-           <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
+          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><MessageSquare className="text-primary" /> Compose Message</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <MessageSquare className="text-primary" /> Compose Message
+              </CardTitle>
               <CardDescription>Write the SMS you want to send to the selected contacts.</CardDescription>
             </CardHeader>
             <CardContent>
@@ -192,33 +196,33 @@ export default function BulkSmsPage() {
               />
             </CardContent>
             <CardFooter className="flex-col items-start gap-4">
-               <Button onClick={handleSend} disabled={isSending || selectedContacts.length === 0} className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90">
+              <Button
+                onClick={handleSend}
+                disabled={isSending || selectedContacts.length === 0}
+                className="w-full bg-gradient-to-r from-primary to-accent hover:from-primary/90 hover:to-accent/90"
+              >
                 {isSending ? (
-                    <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Sending...
-                    </>
+                  <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Sending...</>
                 ) : (
-                  <>
-                    <Send className="mr-2 h-4 w-4" />
-                    Send to {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''}
-                  </>
+                  <><Send className="mr-2 h-4 w-4" />Send to {selectedContacts.length} contact{selectedContacts.length !== 1 ? 's' : ''}</>
                 )}
               </Button>
               <p className="text-xs text-muted-foreground">
-                Note: This feature simulates sending SMS. Check the console for output.
+                Each SMS sent will deduct 1 unit from your SMS balance.
               </p>
             </CardFooter>
           </Card>
         </div>
 
-        {/* Right column for contact selection */}
+        {/* Contact selection */}
         <div className="lg:col-span-2">
           <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl">
             <CardHeader>
-              <CardTitle className="flex items-center gap-2"><Users className="text-primary" /> Select Contacts</CardTitle>
+              <CardTitle className="flex items-center gap-2">
+                <Users className="text-primary" /> Select Contacts
+              </CardTitle>
               <CardDescription>
-                Choose which contacts to send the message to. Only contacts with a phone number are shown.
+                Only contacts with a phone number are shown.
               </CardDescription>
             </CardHeader>
             <CardContent className="p-0">
@@ -271,10 +275,10 @@ export default function BulkSmsPage() {
                 </Table>
               </div>
             </CardContent>
-             <CardFooter className="pt-6">
-                <div className="text-xs text-muted-foreground">
-                  Showing <strong>{phoneContacts.length}</strong> contacts with phone numbers.
-                </div>
+            <CardFooter className="pt-6">
+              <div className="text-xs text-muted-foreground">
+                Showing <strong>{phoneContacts.length}</strong> contacts with phone numbers.
+              </div>
             </CardFooter>
           </Card>
         </div>
