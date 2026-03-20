@@ -10,6 +10,7 @@ import {
   X,
   ChevronRight,
   LogOut,
+  CreditCard,
 } from "lucide-react";
 import Link from "next/link";
 import Image from "next/image";
@@ -93,6 +94,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
     { href: "/dashboard", icon: Home, label: "Dashboard" },
     { href: "/receipts", icon: Receipt, label: "Receipts" },
     { href: "/contacts", icon: Contact, label: "Contacts" },
+    { href: "/sms-credits", icon: CreditCard, label: "SMS Credits" },
     { href: "/settings", icon: Settings, label: "Settings" },
   ];
 

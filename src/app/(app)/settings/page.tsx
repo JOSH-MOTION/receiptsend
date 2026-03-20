@@ -2,7 +2,8 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
-import { Building, Palette, Save, Loader2, Building2, Upload, X, CheckCircle2, ImageIcon } from "lucide-react";
+import Link from "next/link";
+import { Building, Palette, Save, Loader2, Building2, Upload, X, CheckCircle2, ImageIcon, CreditCard, ArrowRight } from "lucide-react";
 import { Button, buttonVariants } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -209,6 +210,28 @@ export default function SettingsPage() {
         <div>
           <h1 className="text-3xl sm:text-4xl font-bold bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">Settings</h1>
           <p className="text-muted-foreground mt-2 text-sm sm:text-base">Manage your organization profile and preferences</p>
+        </div>
+
+        {/* Quick Actions */}
+        <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <Card className="backdrop-blur-xl bg-card/70 border-border shadow-xl hover:shadow-2xl transition-all duration-300 hover:-translate-y-1">
+            <Link href="/sms-credits">
+              <CardContent className="p-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className="p-2 rounded-lg bg-gradient-to-br from-primary to-accent text-white">
+                      <CreditCard className="h-5 w-5" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-foreground">SMS Credits</h3>
+                      <p className="text-sm text-muted-foreground">Manage your SMS balance</p>
+                    </div>
+                  </div>
+                  <ArrowRight className="h-4 w-4 text-muted-foreground" />
+                </div>
+              </CardContent>
+            </Link>
+          </Card>
         </div>
 
         <Tabs defaultValue="profile" className="space-y-6">
