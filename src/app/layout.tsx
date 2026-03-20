@@ -30,11 +30,11 @@ export const metadata: Metadata = {
     title: "SENDORA | Digital Receipt Management",
     description:
       "Send professional digital receipts via Email & SMS instantly. Manage your transactions, contacts, and business branding — all in one place.",
-    url: "https://sendora.app",
+    url: "https://receiptsend.vercel.app/",
     siteName: "Sendora",
     images: [
       {
-        url: "https://sendora.app/og-image.png",
+        url: "https://receiptsend.vercel.app/og-image.png",
         width: 1200,
         height: 630,
         alt: "Sendora - Digital Receipt Management",
@@ -48,7 +48,7 @@ export const metadata: Metadata = {
     title: "SENDORA | Digital Receipts via Email & SMS",
     description:
       "Ditch paper receipts. Send professional digital receipts to your customers in seconds.",
-    images: ["https://sendora.app/og-image.png"],
+    images: ["https://receiptsend.vercel.app/og-image.png"],
   },
 };
 
