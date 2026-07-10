@@ -11,6 +11,7 @@ export interface SmsPackage {
   popular?: boolean;
 }
 
+/*
 export const SMS_PACKAGES: SmsPackage[] = [
   {
     id: 'starter_10',
@@ -40,6 +41,28 @@ export const SMS_PACKAGES: SmsPackage[] = [
     bonus: 85,       // extra 85 → total 1400
   },
 ];
+*/
+
+export const SMS_PACKAGES: SmsPackage[] = [
+  { id: 'sms_100', name: '100 SMS', price: 57, units: 100 },
+  { id: 'sms_250', name: '250 SMS', price: 143, units: 250 },
+  { id: 'sms_500', name: '500 SMS', price: 285, units: 500 },
+  { id: 'sms_750', name: '750 SMS', price: 428, units: 750 },
+  { id: 'sms_1000', name: '1,000 SMS', price: 570, units: 1000, popular: true },
+  { id: 'sms_1250', name: '1,250 SMS', price: 713, units: 1250 },
+  { id: 'sms_1500', name: '1,500 SMS', price: 856, units: 1500 },
+  { id: 'sms_1750', name: '1,750 SMS', price: 998, units: 1750 },
+  { id: 'sms_2000', name: '2,000 SMS', price: 1141, units: 2000 },
+  { id: 'sms_2250', name: '2,250 SMS', price: 1283, units: 2250 },
+  { id: 'sms_2427', name: '2,427 SMS', price: 1384, units: 2427 },
+  { id: 'sms_2500', name: '2,500 SMS', price: 1426, units: 2500 },
+  { id: 'sms_2600', name: '2,600 SMS', price: 1483, units: 2600 },
+  { id: 'sms_2750', name: '2,750 SMS', price: 1569, units: 2750 },
+  { id: 'sms_3000', name: '3,000 SMS', price: 1711, units: 3000 },
+  { id: 'sms_3500', name: '3,500 SMS', price: 1996, units: 3500 },
+  { id: 'sms_4000', name: '4,000 SMS', price: 2282, units: 4000 },
+];
+
 
 export interface SmsPurchaseRecord {
   organizationId: string;
