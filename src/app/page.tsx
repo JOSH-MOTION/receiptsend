@@ -37,7 +37,7 @@ export default function Home() {
 
           <div className="max-w-4xl mx-auto text-center">
              <h1 className="text-5xl md:text-7xl font-extrabold tracking-tight">
-              <span className="bg-gradient-to-r from-primary via-accent to-red-700 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-primary via-accent to-emerald-700 bg-clip-text text-transparent">
                 Digital Receipts, Delivered Instantly
               </span>
             </h1>
@@ -158,10 +158,10 @@ export default function Home() {
         {/* Final CTA */}
         <section className="bg-gradient-to-r from-primary to-accent text-primary-foreground rounded-2xl p-12 text-center shadow-2xl shadow-primary/20">
           <h2 className="text-4xl font-bold mb-4">Ready to Ditch Paper Receipts?</h2>
-          <p className="max-w-2xl mx-auto text-lg text-red-100 mb-8">
+          <p className="max-w-2xl mx-auto text-lg text-emerald-100 mb-8">
             Join thousands of businesses modernizing their transactions. Create your free account today.
           </p>
-           <Button size="lg" asChild variant="secondary" className="group bg-white text-primary hover:bg-red-50 shadow-lg transform hover:scale-105 transition-transform duration-300">
+           <Button size="lg" asChild variant="secondary" className="group bg-white text-primary hover:bg-emerald-50 shadow-lg transform hover:scale-105 transition-transform duration-300">
             <Link href="/signup" className="flex items-center gap-2">
               Sign Up Now
               <Rocket className="w-5 h-5 group-hover:translate-x-1 transition" />
